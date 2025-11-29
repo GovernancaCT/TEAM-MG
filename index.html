@@ -45,6 +45,12 @@
     cursor: pointer;
   }
 
+  .timer {
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 20px;
+  }
+
   table {
     margin: 20px auto;
     width: 90%;
@@ -57,11 +63,6 @@
   th {
     background: #FF5722;
     color: white;
-  }
-  .timer {
-    margin-top: 20px;
-    font-weight: bold;
-    font-size: 20px;
   }
 
   /* ====== PÓDIO ANIMADO ====== */
@@ -111,7 +112,6 @@
     from { opacity: 0; transform: translateY(40px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-
 </style>
 
 </head>
@@ -132,7 +132,7 @@
   <button onclick="entrar()">Entrar</button>
 </div>
 
-<!-- === SALA COM CONTAGEM === -->
+<!-- === SALA COM CONTAGEM (LOBBY) === -->
 <div id="posCadastroScreen" class="screen hidden">
   <h1>👥 Participantes Conectados</h1>
   <h2 id="contadorPessoas">0 jogadores</h2>
@@ -160,7 +160,7 @@
   <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
 </div>
 
-<!-- === RANKING PARCIAL === -->
+<!-- === RANKING PARCIAL (LOCAL) === -->
 <div id="rankingScreen" class="screen hidden">
   <h2>Ranking Parcial</h2>
   <p id="tempoDaPergunta"></p>
@@ -179,7 +179,7 @@
   <button onclick="adminDecide()">Continuar</button>
 </div>
 
-<!-- === RESULTADO FINAL (PÓDIO) === -->
+<!-- === RESULTADO FINAL (PÓDIO GLOBAL) === -->
 <div id="resultadoScreen" class="screen hidden">
   <h1>🏆 Resultado Final</h1>
   <h3 id="tituloPodio"></h3>
@@ -207,7 +207,6 @@
 
 
 <script>
-
 // ===================== CONFIG ======================
 const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
 
@@ -353,7 +352,7 @@ function registrarTempo(acertou){
   mostrarRanking(tempoGasto);
 }
 
-// ------------- RANKING PARCIAL -------------
+// ------------- RANKING PARCIAL (LOCAL) -------------
 function mostrarRanking(tempoGasto){
 
   hide("quizScreen");
@@ -381,29 +380,47 @@ function adminDecide(){
   isAdmin ? show("adminScreen") : show("waitingScreen");
 }
 
-// ------------- FINAL (PÓDIO) -------------
-function finalizarGeral(){
+// ------------- FINAL (PÓDIO GLOBAL) -------------
+async function finalizarGeral(){
   hide("rankingScreen");
   hide("quizScreen");
   hide("waitingScreen");
   hide("adminScreen");
   show("resultadoScreen");
 
-  // ordena do melhor pro pior
+  // Top local (melhor deste dispositivo) para mandar ao servidor
   listaJogadores.sort((a,b)=>{
     if (b.pontos !== a.pontos) return b.pontos - a.pontos;
     return a.tempoTotal - b.tempoTotal;
   });
 
-  const top1 = listaJogadores[0];
-  const top2 = listaJogadores[1];
-  const top3 = listaJogadores[2];
+  const melhorLocal = listaJogadores[0];
+
+  if (melhorLocal){
+    await postEstado({
+      ranking_update: {
+        nome: melhorLocal.nome,
+        pontos: melhorLocal.pontos,
+        tempoTotal: melhorLocal.tempoTotal
+      }
+    });
+  }
+
+  // Busca top3 global
+  let data;
+  try {
+    data = await getEstado();
+  } catch (e) {
+    data = { top3: [] };
+  }
+
+  const top3 = data.top3 || [];
 
   const titulo = document.getElementById("tituloPodio");
-  if (listaJogadores.length === 0) {
-    titulo.innerText = "Nenhum participante 😅";
-  } else if (listaJogadores.length === 1) {
-    titulo.innerText = `Campeão: ${top1.nome}`;
+  if (!top3.length) {
+    titulo.innerText = "Nenhum resultado registrado 😅";
+  } else if (top3.length === 1) {
+    titulo.innerText = `Campeão: ${top3[0].nome}`;
   } else {
     titulo.innerText = "Top 3 da Reunião";
   }
@@ -421,9 +438,9 @@ function finalizarGeral(){
     }
   }
 
-  fillPodio(1, top1);
-  fillPodio(2, top2);
-  fillPodio(3, top3);
+  fillPodio(1, top3[0]);
+  fillPodio(2, top3[1]);
+  fillPodio(3, top3[2]);
 }
 
 // ------------- RESET TOTAL (ADMIN) -------------
@@ -440,6 +457,7 @@ async function resetTotal(){
   localStorage.removeItem("quizPlayers");
   localStorage.removeItem("quizRegistrado");
   nomeAtual = "";
+  listaJogadores = [];
 
   alert("Quiz resetado!");
 
@@ -447,57 +465,63 @@ async function resetTotal(){
   show("cadastroScreen");
 }
 
-// ------------- POLLING + CORREÇÃO DO BUG -------------
+// ------------- POLLING (SINCRONIZAÇÃO + LOBBY LIVE) -------------
 async function buscarEstadoServidor(){
   try{
     let data = await getEstado();
     estadoServidor = data;
 
-    // administra painel
+    const numPerg = parseInt(data.pergunta_atual);
+
+    // Atualiza contador na sala de participantes em tempo real
+    const lobbyVisible = !document.getElementById("posCadastroScreen").classList.contains("hidden");
+    if (lobbyVisible) {
+      document.getElementById("contadorPessoas").innerText =
+        data.total_jogadores + " jogadores";
+    }
+
+    // Painel do admin
     if (isAdmin){
       document.getElementById("infoAdmin").innerText =
         `Pergunta atual: ${data.pergunta_atual} / ${perguntas.length}`;
     }
 
-    let numPerg = parseInt(data.pergunta_atual);
-
-    // JOGADOR SINCRONIZA
+    // Jogador segue servidor
     if (!isAdmin){
 
-      // sincroniza perguntas
+      // Nova pergunta liberada
       if (numPerg > 0 && numPerg !== ultimaPerguntaVista){
         ultimaPerguntaVista = numPerg;
         indexPergunta = numPerg - 1;
         exibirPerguntaAtual();
       }
 
-      // reset real → só se jogador ainda não se registrou
+      // Reset real → jogador ainda não registrado
       if (data.status === "esperando" && localStorage.getItem("quizRegistrado") !== "1"){
         show("cadastroScreen");
       }
 
-      // finalização vinda do servidor
+      // Fim do jogo vindo do servidor
       if (numPerg === 0 && data.status === "finalizado"){
         finalizarGeral();
       }
     }
 
-    // ADMIN NUNCA volta ao cadastro sozinho
+    // Admin nunca volta pro cadastro sozinho
     if (isAdmin && data.status === "esperando"){
       hide("cadastroScreen");
       hide("waitingScreen");
-      // só mostra adminScreen se já passou da tela de contagem
+      // não força sair da tela de contagem
       if (!document.getElementById("posCadastroScreen").classList.contains("hidden")) return;
       show("adminScreen");
     }
 
   }catch(e){
-    // se der erro silencioso, não quebra a tela
+    // erro silencioso
   }
 }
 
 setInterval(buscarEstadoServidor,1500);
-
 </script>
 
 </body>
