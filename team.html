@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz da Reunião</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f4f9;
+    text-align: center;
+  }
+  .hidden { display: none; }
+  .screen { padding: 40px; }
+  .opcao {
+    padding: 12px;
+    margin: 10px auto;
+    background: #fff;
+    border: 2px solid #FF5722;
+    width: 80%;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button {
+    padding: 12px 20px;
+    background: #FF5722;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    color: #fff;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  table {
+    margin: 20px auto;
+    width: 90%;
+    border-collapse: collapse;
+  }
+  th, td {
+    padding: 10px;
+    border: 1px solid #ccc;
+  }
+  th {
+    background: #FF5722;
+    color: white;
+  }
+</style>
+
+</head>
+<body>
+
+<!-- === QR CODE === -->
+<div id="qrScreen" class="screen">
+  <h1>🔒 Acesso Restrito</h1>
+  <p>Escaneie o QR Code para participar</p>
+  <img src="SEU_QRCODE.png" width="200">
+  <button onclick="acessarComQR()">Já escaneei</button>
+</div>
+
+<!-- === CADASTRO === -->
+<div id="cadastroScreen" class="screen hidden">
+  <h2>Digite seu nome para entrar</h2>
+  <input id="nomeJogador" placeholder="Seu nome">
+  <button onclick="entrar()">Entrar</button>
+</div>
+
+<!-- === ESPERA === -->
+<div id="waitingScreen" class="screen hidden">
+  <h2>Aguarde o anfitrião iniciar…</h2>
+</div>
+
+<!-- === ADMIN === -->
+<div id="adminScreen" class="screen hidden">
+  <h1>Painel do Anfitrião</h1>
+  <button onclick="iniciarPergunta()">Iniciar Próxima Pergunta</button>
+  <div id="infoAdmin"></div>
+</div>
+
+<!-- === PERGUNTA === -->
+<div id="quizScreen" class="screen hidden">
+  <h2 id="perguntaTexto"></h2>
+  <div id="opcoes"></div>
+  <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
+</div>
+
+<!-- === RANKING === -->
+<div id="rankingScreen" class="screen hidden">
+  <h2>Ranking Parcial</h2>
+  <p id="tempoDaPergunta"></p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Jogador</th>
+        <th>Pontos</th>
+        <th>Tempo Total (s)</th>
+      </tr>
+    </thead>
+    <tbody id="rankingTabela"></tbody>
+  </table>
+
+  <button onclick="adminDecide()">Continuar</button>
+</div>
+
+<!-- === RESULTADO FINAL === -->
+<div id="resultadoScreen" class="screen hidden">
+  <h1>Resultado Final</h1>
+  <div id="resultadoFinal"></div>
+</div>
+
+
+<script>
+// ---------- PERGUNTAS ----------
+const perguntas = [
+  { pergunta: "Quem apresentou os resultados?", opcoes: ["Pedro", "Henrique", "Saulo", "Bruno"], correta: 1 },
+  { pergunta: "Qual foi o tema principal?", opcoes: ["Backlog", "Qualidade", "Rota", "Redelivery"], correta: 2 },
+  { pergunta: "Qual HUB evoluiu mais?", opcoes: ["LMG-05", "LMG-62", "Barreiro", "Manaus"], correta: 0 },
+];
+// --------------------------------
+
+let listaJogadores = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
+let nomeAtual = "";
+let indexPergunta = 0;
+let tempo = 15;
+let timer;
+let tempoInicioPergunta = 0;
+
+// QR liberado
+function acessarComQR() {
+  document.getElementById("qrScreen").classList.add("hidden");
+  document.getElementById("cadastroScreen").classList.remove("hidden");
+}
+
+function entrar() {
+  nomeAtual = document.getElementById("nomeJogador").value.trim();
+  if (nomeAtual === "") return alert("Digite o nome!");
+
+  let existe = listaJogadores.find(p => p.nome === nomeAtual);
+  if (!existe) {
+    listaJogadores.push({ nome: nomeAtual, pontos: 0, tempoTotal: 0 });
+    localStorage.setItem("quizPlayers", JSON.stringify(listaJogadores));
+  }
+
+  document.getElementById("cadastroScreen").classList.add("hidden");
+
+  if (nomeAtual.toLowerCase() === "henrique") {
+    document.getElementById("adminScreen").classList.remove("hidden");
+  } else {
+    document.getElementById("waitingScreen").classList.remove("hidden");
+  }
+}
+
+// Admin solta pergunta
+function iniciarPergunta() {
+  if (indexPergunta >= perguntas.length) return finalizarGeral();
+
+  document.getElementById("adminScreen").classList.add("hidden");
+  document.getElementById("waitingScreen").classList.add("hidden");
+  document.getElementById("rankingScreen").classList.add("hidden");
+  document.getElementById("quizScreen").classList.remove("hidden");
+
+  mostrarPergunta();
+}
+
+function mostrarPergunta() {
+  const q = perguntas[indexPergunta];
+
+  document.getElementById("perguntaTexto").innerText = q.pergunta;
+
+  let html = "";
+  q.opcoes.forEach((opc, i) => {
+    html += `<div class='opcao' onclick='responder(${i})'>${opc}</div>`;
+  });
+
+  document.getElementById("opcoes").innerHTML = html;
+
+  tempo = 15;
+  document.getElementById("tempo").innerText = tempo;
+
+  tempoInicioPergunta = Date.now();
+
+  timer = setInterval(() => {
+    tempo--;
+    document.getElementById("tempo").innerText = tempo;
+
+    if (tempo <= 0) {
+      clearInterval(timer);
+      registrarTempo(-1); // não respondeu
+    }
+  }, 1000);
+}
+
+function responder(opcao) {
+  clearInterval(timer);
+
+  const q = perguntas[indexPergunta];
+  registrarTempo(opcao === q.correta);
+}
+
+function registrarTempo(acertou) {
+  let tempoGasto = (Date.now() - tempoInicioPergunta) / 1000;
+
+  let jogador = listaJogadores.find(p => p.nome === nomeAtual);
+  if (acertou === true) jogador.pontos++;
+  jogador.tempoTotal += tempoGasto;
+
+  localStorage.setItem("quizPlayers", JSON.stringify(listaJogadores));
+
+  mostrarRanking(tempoGasto);
+}
+
+function mostrarRanking(tempoGasto) {
+  document.getElementById("quizScreen").classList.add("hidden");
+  document.getElementById("rankingScreen").classList.remove("hidden");
+
+  document.getElementById("tempoDaPergunta").innerText =
+    `Você gastou: ${tempoGasto.toFixed(2)} segundos`;
+
+  // ordenar ranking
+  listaJogadores.sort((a, b) => {
+    if (b.pontos !== a.pontos) return b.pontos - a.pontos;
+    return a.tempoTotal - b.tempoTotal;
+  });
+
+  let html = "";
+  listaJogadores.forEach(p => {
+    html += `
+      <tr>
+        <td>${p.nome}</td>
+        <td>${p.pontos}</td>
+        <td>${p.tempoTotal.toFixed(2)}</td>
+      </tr>`;
+  });
+
+  document.getElementById("rankingTabela").innerHTML = html;
+}
+
+function adminDecide() {
+  indexPergunta++;
+  document.getElementById("rankingScreen").classList.add("hidden");
+
+  if (nomeAtual.toLowerCase() === "henrique") {
+    document.getElementById("adminScreen").classList.remove("hidden");
+  } else {
+    document.getElementById("waitingScreen").classList.remove("hidden");
+  }
+}
+
+function finalizarGeral() {
+  document.getElementById("rankingScreen").classList.add("hidden");
+  document.getElementById("resultadoScreen").classList.remove("hidden");
+
+  let html = "<h3>Ranking Final</h3><table><tr><th>Nome</th><th>Pontos</th><th>Tempo Total</th></tr>";
+
+  listaJogadores.forEach(p => {
+    html += `<tr><td>${p.nome}</td><td>${p.pontos}</td><td>${p.tempoTotal.toFixed(2)}s</td></tr>`;
+  });
+
+  html += "</table>";
+
+  document.getElementById("resultadoFinal").innerHTML = html;
+}
+</script>
+
+</body>
+</html>
