@@ -33,6 +33,7 @@
     cursor: pointer;
     margin-top: 20px;
   }
+  button:hover { opacity: 0.9; }
   table {
     margin: 20px auto;
     width: 90%;
@@ -45,6 +46,11 @@
   th {
     background: #FF5722;
     color: white;
+  }
+  .timer {
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 20px;
   }
 </style>
 
@@ -82,8 +88,8 @@
 <div id="adminScreen" class="screen hidden">
   <h1>Painel do Anfitrião</h1>
   <p>Você controla a liberação de cada pergunta.</p>
+  <p id="infoAdmin"></p>
   <button onclick="iniciarPerguntaAdmin()">Iniciar Próxima Pergunta</button>
-  <div id="infoAdmin"></div>
 </div>
 
 <!-- === PERGUNTA === -->
@@ -121,13 +127,14 @@
 
 <script>
 // ===================== CONFIG ======================
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz5lEY3LOndcFirNP-hrvoSFYn74At-K2P0ACRH3dDEuMwI4KsaYRtqWqvZCE6C8h1P/exec";
+const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
 
 // ---------- PERGUNTAS (EDITE AQUI) ----------
 const perguntas = [
   { pergunta: "Quem apresentou os resultados?", opcoes: ["Pedro", "Henrique", "Saulo", "Bruno"], correta: 1 },
   { pergunta: "Qual foi o tema principal?", opcoes: ["Backlog", "Qualidade", "Rota", "Redelivery"], correta: 2 },
   { pergunta: "Qual HUB evoluiu mais?", opcoes: ["LMG-05", "LMG-62", "Barreiro", "Manaus"], correta: 0 },
+  // adicione até 10 perguntas...
 ];
 // ============================================
 
@@ -136,23 +143,37 @@ let nomeAtual = "";
 let isAdmin = false;
 
 let indexPergunta = 0;          // índice (0-based) da pergunta atual
-let ultimaPerguntaVista = 0;    // número (1-based) da última pergunta vista pelo usuário
+let ultimaPerguntaVista = 0;    // número (1-based) da última pergunta vista
 let tempo = 15;
 let timer;
 let tempoInicioPergunta = 0;
 
-// Estado vindo do servidor (Sheets)
+// Estado global que vem do Worker
 let estadoServidor = {
   pergunta_atual: 0,
-  total_jogadores: 0
+  total_jogadores: 0,
+  status: "esperando"
 };
 
-// -------------- FUNÇÕES BÁSICAS DE TELA ----------------
+// -------------- FUNÇÕES AUXILIARES ----------------
 function mostrarElemento(id) {
   document.getElementById(id).classList.remove("hidden");
 }
 function esconderElemento(id) {
   document.getElementById(id).classList.add("hidden");
+}
+
+async function getEstado() {
+  const r = await fetch(SCRIPT_URL);
+  return r.json();
+}
+
+async function postEstado(partial) {
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(partial)
+  });
 }
 
 // -------------- QR LIBERADO ----------------
@@ -167,7 +188,7 @@ function atualizarContadorPosCadastro(total) {
     total + " jogadores";
 }
 
-function entrar() {
+async function entrar() {
   nomeAtual = document.getElementById("nomeJogador").value.trim();
   if (nomeAtual === "") return alert("Digite o nome!");
 
@@ -184,27 +205,26 @@ function entrar() {
 
   esconderElemento("cadastroScreen");
 
-  // Atualiza total_jogadores global no Sheets
-  fetch(SCRIPT_URL)
-    .then(r => r.json())
-    .then(data => {
-      let total = parseInt(data.total_jogadores || "0", 10) + 1;
-      return fetch(SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ total_jogadores: total })
-      }).then(() => total);
-    })
-    .then(total => {
-      atualizarContadorPosCadastro(total);
-      mostrarElemento("posCadastroScreen");
-    })
-    .catch(err => {
-      console.error("Erro ao atualizar total_jogadores:", err);
-      // Mesmo com erro, mostra tela
-      atualizarContadorPosCadastro(0);
-      mostrarElemento("posCadastroScreen");
-    });
+  // evita contar o mesmo dispositivo várias vezes
+  const jaContabilizado = localStorage.getItem("quizRegistrado") === "1";
+
+  try {
+    const estado = await getEstado();
+    let total = parseInt(estado.total_jogadores || "0", 10);
+
+    if (!jaContabilizado) {
+      total++;
+      await postEstado({ total_jogadores: total });
+      localStorage.setItem("quizRegistrado", "1");
+    }
+
+    atualizarContadorPosCadastro(total);
+  } catch (err) {
+    console.error("Erro ao atualizar total_jogadores:", err);
+    atualizarContadorPosCadastro(0);
+  }
+
+  mostrarElemento("posCadastroScreen");
 }
 
 function irParaEspera() {
@@ -217,29 +237,28 @@ function irParaEspera() {
 }
 
 // -------------- ADMIN: INICIAR PRÓXIMA PERGUNTA ----------------
-function iniciarPerguntaAdmin() {
-  // Próxima pergunta (1-based)
-  let prox = ultimaPerguntaVista + 1;
+async function iniciarPerguntaAdmin() {
+  // carrega estado mais recente
+  try {
+    estadoServidor = await getEstado();
+  } catch (e) {
+    console.error("Erro ao ler estado:", e);
+  }
+
+  let atual = parseInt(estadoServidor.pergunta_atual || "0", 10);
+  let prox = atual + 1;
+
   if (prox > perguntas.length) {
+    // fim do quiz
+    await postEstado({ pergunta_atual: 0, status: "finalizado" });
     finalizarGeral();
-    // opcional: avisar servidor que acabou (pergunta_atual = 0)
-    fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pergunta_atual: 0 })
-    }).catch(()=>{});
     return;
   }
 
   indexPergunta = prox - 1;
   ultimaPerguntaVista = prox;
 
-  // Envia para o servidor qual é a pergunta atual
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pergunta_atual: prox })
-  }).catch(err => console.error("Erro ao atualizar pergunta_atual:", err));
+  await postEstado({ pergunta_atual: prox, status: "respondendo" });
 
   exibirPerguntaAtual();
 }
@@ -308,7 +327,7 @@ function mostrarRanking(tempoGasto) {
   document.getElementById("tempoDaPergunta").innerText =
     `Você gastou: ${tempoGasto.toFixed(2)} segundos`;
 
-  // ranking local (apenas deste dispositivo)
+  // ranking local (apenas neste dispositivo)
   listaJogadores.sort((a, b) => {
     if (b.pontos !== a.pontos) return b.pontos - a.pontos;
     return a.tempoTotal - b.tempoTotal;
@@ -330,10 +349,8 @@ function mostrarRanking(tempoGasto) {
 function adminDecide() {
   esconderElemento("rankingScreen");
   if (isAdmin) {
-    // volta para painel admin para ele decidir quando soltar a próxima
     mostrarElemento("adminScreen");
   } else {
-    // jogador volta para tela de espera
     mostrarElemento("waitingScreen");
   }
 }
@@ -358,31 +375,45 @@ function finalizarGeral() {
 }
 
 // -------------- POLLING NO SERVIDOR (SINCRONIZAÇÃO) ----------------
-function buscarEstadoServidor() {
-  fetch(SCRIPT_URL)
-    .then(r => r.json())
-    .then(data => {
-      estadoServidor = data;
+async function buscarEstadoServidor() {
+  try {
+    const data = await getEstado();
+    estadoServidor = data;
 
-      const numPerg = parseInt(data.pergunta_atual || "0", 10);
+    const numPerg = parseInt(data.pergunta_atual || "0", 10);
 
-      // Se não for admin, ele segue o que o servidor mandar
-      if (!isAdmin && nomeAtual) {
-        if (numPerg > 0 && numPerg !== ultimaPerguntaVista && numPerg <= perguntas.length) {
-          ultimaPerguntaVista = numPerg;
-          indexPergunta = numPerg - 1;
-          exibirPerguntaAtual();
-        }
-        // se pergunta_atual voltar pra 0, não faz nada especial (pode ser fim)
+    // atualiza info no painel do admin
+    if (isAdmin && document.getElementById("infoAdmin")) {
+      document.getElementById("infoAdmin").innerText =
+        `Pergunta atual no servidor: ${numPerg} de ${perguntas.length}`;
+    }
+
+    // se ainda não cadastrou, não faz nada
+    if (!nomeAtual) return;
+
+    // jogadores seguem o servidor
+    if (!isAdmin) {
+      if (numPerg > 0 &&
+          numPerg !== ultimaPerguntaVista &&
+          numPerg <= perguntas.length) {
+
+        ultimaPerguntaVista = numPerg;
+        indexPergunta = numPerg - 1;
+        exibirPerguntaAtual();
       }
-    })
-    .catch(err => {
-      console.error("Erro ao buscar estado do servidor:", err);
-    });
+
+      // se servidor zerar pergunta_atual e status finalizado, poderia mostrar tela final
+      if (numPerg === 0 && data.status === "finalizado") {
+        finalizarGeral();
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao buscar estado do servidor:", err);
+  }
 }
 
-// Inicia polling assim que carregar a página
-setInterval(busarEstadoServidor, 1500);
+// inicia polling ao carregar página
+setInterval(buscarEstadoServidor, 1500);
 </script>
 
 </body>
