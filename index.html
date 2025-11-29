@@ -121,7 +121,8 @@
 <div id="qrScreen" class="screen">
   <h1>🔒 Acesso Restrito</h1>
   <p>Escaneie o QR Code para participar</p>
-  <img src="SEU_QRCODE.png" width="200">
+  <!-- Troque SEU_QRCODE.png pelo caminho correto do seu QR -->
+  <img src="SEU_QRCODE.png" width="200" alt="QR Code">
   <button onclick="acessarComQR()">Já escaneei</button>
 </div>
 
@@ -227,6 +228,7 @@ let ultimaPerguntaVista = 0;
 let tempo = 15;
 let timer;
 let tempoInicioPergunta = 0;
+let jogoFinalizado = false; // evita rodar final várias vezes
 
 // ------------- AUXILIARES -------------
 function show(id){ document.getElementById(id).classList.remove("hidden"); }
@@ -253,11 +255,12 @@ async function entrar(){
   nomeAtual = document.getElementById("nomeJogador").value.trim();
   if (nomeAtual === "") return alert("Digite o nome!");
 
+  // admin fixo como "henriquectx"
   isAdmin = (nomeAtual.toLowerCase() === "henriquectx");
 
   let registrado = localStorage.getItem("quizRegistrado") === "1";
   let estado = await getEstado();
-  let total = parseInt(estado.total_jogadores);
+  let total = parseInt(estado.total_jogadores || 0);
 
   if (!registrado){
     total++;
@@ -277,10 +280,24 @@ function irParaEspera(){
   isAdmin ? show("adminScreen") : show("waitingScreen");
 }
 
+// ------------- ATUALIZA LOBBY EM TEMPO REAL -------------
+async function atualizarLobby() {
+  try {
+    const estado = await getEstado();
+    const lobby = document.getElementById("posCadastroScreen");
+    if (lobby && !lobby.classList.contains("hidden")) {
+      document.getElementById("contadorPessoas").innerText =
+        estado.total_jogadores + " jogadores";
+    }
+  } catch(e) {
+    // ignora erros de rede
+  }
+}
+
 // ------------- ADMIN INICIA PERGUNTA -------------
 async function iniciarPerguntaAdmin(){
   let estado = await getEstado();
-  let prox = parseInt(estado.pergunta_atual) + 1;
+  let prox = parseInt(estado.pergunta_atual || 0) + 1;
 
   if (prox > perguntas.length){
     await postEstado({ pergunta_atual: 0, status: "finalizado" });
@@ -382,6 +399,9 @@ function adminDecide(){
 
 // ------------- FINAL (PÓDIO GLOBAL) -------------
 async function finalizarGeral(){
+  if (jogoFinalizado) return; // evita rodar duas vezes
+  jogoFinalizado = true;
+
   hide("rankingScreen");
   hide("quizScreen");
   hide("waitingScreen");
@@ -458,10 +478,12 @@ async function resetTotal(){
   localStorage.removeItem("quizRegistrado");
   nomeAtual = "";
   listaJogadores = [];
+  jogoFinalizado = false;
 
   alert("Quiz resetado!");
 
   hide("adminScreen");
+  hide("resultadoScreen");
   show("cadastroScreen");
 }
 
@@ -471,14 +493,7 @@ async function buscarEstadoServidor(){
     let data = await getEstado();
     estadoServidor = data;
 
-    const numPerg = parseInt(data.pergunta_atual);
-
-    // Atualiza contador na sala de participantes em tempo real
-    const lobbyVisible = !document.getElementById("posCadastroScreen").classList.contains("hidden");
-    if (lobbyVisible) {
-      document.getElementById("contadorPessoas").innerText =
-        data.total_jogadores + " jogadores";
-    }
+    const numPerg = parseInt(data.pergunta_atual || 0);
 
     // Painel do admin
     if (isAdmin){
@@ -490,19 +505,26 @@ async function buscarEstadoServidor(){
     if (!isAdmin){
 
       // Nova pergunta liberada
-      if (numPerg > 0 && numPerg !== ultimaPerguntaVista){
+      if (!jogoFinalizado &&
+          numPerg > 0 &&
+          numPerg !== ultimaPerguntaVista &&
+          numPerg <= perguntas.length){
         ultimaPerguntaVista = numPerg;
         indexPergunta = numPerg - 1;
         exibirPerguntaAtual();
       }
 
       // Reset real → jogador ainda não registrado
-      if (data.status === "esperando" && localStorage.getItem("quizRegistrado") !== "1"){
+      if (data.status === "esperando" &&
+          localStorage.getItem("quizRegistrado") !== "1"){
+        hide("qrScreen");
         show("cadastroScreen");
       }
 
       // Fim do jogo vindo do servidor
-      if (numPerg === 0 && data.status === "finalizado"){
+      if (!jogoFinalizado &&
+          numPerg === 0 &&
+          data.status === "finalizado"){
         finalizarGeral();
       }
     }
@@ -521,7 +543,10 @@ async function buscarEstadoServidor(){
   }
 }
 
+// polling geral de estado
 setInterval(buscarEstadoServidor,1500);
+// polling da sala de espera
+setInterval(atualizarLobby,1500);
 </script>
 
 </body>
