@@ -66,7 +66,14 @@
   <button onclick="entrar()">Entrar</button>
 </div>
 
-<!-- === ESPERA === -->
+<!-- === TELA PÓS CADASTRO: TOTAL DE PARTICIPANTES === -->
+<div id="posCadastroScreen" class="screen hidden">
+  <h1>👥 Participantes Conectados</h1>
+  <h2 id="contadorPessoas2">0 jogadores</h2>
+  <button onclick="irParaEspera()">Continuar</button>
+</div>
+
+<!-- === ESPERA JOGADOR === -->
 <div id="waitingScreen" class="screen hidden">
   <h2>Aguarde o anfitrião iniciar…</h2>
 </div>
@@ -74,7 +81,8 @@
 <!-- === ADMIN === -->
 <div id="adminScreen" class="screen hidden">
   <h1>Painel do Anfitrião</h1>
-  <button onclick="iniciarPergunta()">Iniciar Próxima Pergunta</button>
+  <p>Você controla a liberação de cada pergunta.</p>
+  <button onclick="iniciarPerguntaAdmin()">Iniciar Próxima Pergunta</button>
   <div id="infoAdmin"></div>
 </div>
 
@@ -85,7 +93,7 @@
   <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
 </div>
 
-<!-- === RANKING === -->
+<!-- === RANKING LOCAL === -->
 <div id="rankingScreen" class="screen hidden">
   <h2>Ranking Parcial</h2>
   <p id="tempoDaPergunta"></p>
@@ -104,7 +112,7 @@
   <button onclick="adminDecide()">Continuar</button>
 </div>
 
-<!-- === RESULTADO FINAL === -->
+<!-- === RESULTADO FINAL LOCAL === -->
 <div id="resultadoScreen" class="screen hidden">
   <h1>Resultado Final</h1>
   <div id="resultadoFinal"></div>
@@ -112,68 +120,144 @@
 
 
 <script>
-// ---------- PERGUNTAS ----------
+// ===================== CONFIG ======================
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz5lEY3LOndcFirNP-hrvoSFYn74At-K2P0ACRH3dDEuMwI4KsaYRtqWqvZCE6C8h1P/exec";
+
+// ---------- PERGUNTAS (EDITE AQUI) ----------
 const perguntas = [
   { pergunta: "Quem apresentou os resultados?", opcoes: ["Pedro", "Henrique", "Saulo", "Bruno"], correta: 1 },
   { pergunta: "Qual foi o tema principal?", opcoes: ["Backlog", "Qualidade", "Rota", "Redelivery"], correta: 2 },
   { pergunta: "Qual HUB evoluiu mais?", opcoes: ["LMG-05", "LMG-62", "Barreiro", "Manaus"], correta: 0 },
 ];
-// --------------------------------
+// ============================================
 
 let listaJogadores = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
 let nomeAtual = "";
-let indexPergunta = 0;
+let isAdmin = false;
+
+let indexPergunta = 0;          // índice (0-based) da pergunta atual
+let ultimaPerguntaVista = 0;    // número (1-based) da última pergunta vista pelo usuário
 let tempo = 15;
 let timer;
 let tempoInicioPergunta = 0;
 
-// QR liberado
+// Estado vindo do servidor (Sheets)
+let estadoServidor = {
+  pergunta_atual: 0,
+  total_jogadores: 0
+};
+
+// -------------- FUNÇÕES BÁSICAS DE TELA ----------------
+function mostrarElemento(id) {
+  document.getElementById(id).classList.remove("hidden");
+}
+function esconderElemento(id) {
+  document.getElementById(id).classList.add("hidden");
+}
+
+// -------------- QR LIBERADO ----------------
 function acessarComQR() {
-  document.getElementById("qrScreen").classList.add("hidden");
-  document.getElementById("cadastroScreen").classList.remove("hidden");
+  esconderElemento("qrScreen");
+  mostrarElemento("cadastroScreen");
+}
+
+// -------------- CADASTRO / PARTICIPANTES ----------------
+function atualizarContadorPosCadastro(total) {
+  document.getElementById("contadorPessoas2").innerText =
+    total + " jogadores";
 }
 
 function entrar() {
   nomeAtual = document.getElementById("nomeJogador").value.trim();
   if (nomeAtual === "") return alert("Digite o nome!");
 
-  let existe = listaJogadores.find(p => p.nome === nomeAtual);
-  if (!existe) {
-    listaJogadores.push({ nome: nomeAtual, pontos: 0, tempoTotal: 0 });
-    localStorage.setItem("quizPlayers", JSON.stringify(listaJogadores));
+  // Admin é "henriquectx"
+  isAdmin = (nomeAtual.toLowerCase() === "henriquectx");
+
+  // Ranking local (por dispositivo)
+  let lista = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
+  if (!lista.find(p => p.nome === nomeAtual)) {
+    lista.push({ nome: nomeAtual, pontos: 0, tempoTotal: 0 });
+    localStorage.setItem("quizPlayers", JSON.stringify(lista));
   }
+  listaJogadores = lista;
 
-  document.getElementById("cadastroScreen").classList.add("hidden");
+  esconderElemento("cadastroScreen");
 
-  if (nomeAtual.toLowerCase() === "henrique") {
-    document.getElementById("adminScreen").classList.remove("hidden");
+  // Atualiza total_jogadores global no Sheets
+  fetch(SCRIPT_URL)
+    .then(r => r.json())
+    .then(data => {
+      let total = parseInt(data.total_jogadores || "0", 10) + 1;
+      return fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ total_jogadores: total })
+      }).then(() => total);
+    })
+    .then(total => {
+      atualizarContadorPosCadastro(total);
+      mostrarElemento("posCadastroScreen");
+    })
+    .catch(err => {
+      console.error("Erro ao atualizar total_jogadores:", err);
+      // Mesmo com erro, mostra tela
+      atualizarContadorPosCadastro(0);
+      mostrarElemento("posCadastroScreen");
+    });
+}
+
+function irParaEspera() {
+  esconderElemento("posCadastroScreen");
+  if (isAdmin) {
+    mostrarElemento("adminScreen");
   } else {
-    document.getElementById("waitingScreen").classList.remove("hidden");
+    mostrarElemento("waitingScreen");
   }
 }
 
-// Admin solta pergunta
-function iniciarPergunta() {
-  if (indexPergunta >= perguntas.length) return finalizarGeral();
+// -------------- ADMIN: INICIAR PRÓXIMA PERGUNTA ----------------
+function iniciarPerguntaAdmin() {
+  // Próxima pergunta (1-based)
+  let prox = ultimaPerguntaVista + 1;
+  if (prox > perguntas.length) {
+    finalizarGeral();
+    // opcional: avisar servidor que acabou (pergunta_atual = 0)
+    fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pergunta_atual: 0 })
+    }).catch(()=>{});
+    return;
+  }
 
-  document.getElementById("adminScreen").classList.add("hidden");
-  document.getElementById("waitingScreen").classList.add("hidden");
-  document.getElementById("rankingScreen").classList.add("hidden");
-  document.getElementById("quizScreen").classList.remove("hidden");
+  indexPergunta = prox - 1;
+  ultimaPerguntaVista = prox;
 
-  mostrarPergunta();
+  // Envia para o servidor qual é a pergunta atual
+  fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pergunta_atual: prox })
+  }).catch(err => console.error("Erro ao atualizar pergunta_atual:", err));
+
+  exibirPerguntaAtual();
 }
 
-function mostrarPergunta() {
-  const q = perguntas[indexPergunta];
+// -------------- EXIBIR PERGUNTA (ADMIN E JOGADOR) ----------------
+function exibirPerguntaAtual() {
+  esconderElemento("adminScreen");
+  esconderElemento("waitingScreen");
+  esconderElemento("rankingScreen");
+  mostrarElemento("quizScreen");
 
+  const q = perguntas[indexPergunta];
   document.getElementById("perguntaTexto").innerText = q.pergunta;
 
   let html = "";
   q.opcoes.forEach((opc, i) => {
     html += `<div class='opcao' onclick='responder(${i})'>${opc}</div>`;
   });
-
   document.getElementById("opcoes").innerHTML = html;
 
   tempo = 15;
@@ -181,6 +265,7 @@ function mostrarPergunta() {
 
   tempoInicioPergunta = Date.now();
 
+  clearInterval(timer);
   timer = setInterval(() => {
     tempo--;
     document.getElementById("tempo").innerText = tempo;
@@ -192,6 +277,7 @@ function mostrarPergunta() {
   }, 1000);
 }
 
+// -------------- RESPOSTA / RANKING LOCAL ----------------
 function responder(opcao) {
   clearInterval(timer);
 
@@ -203,6 +289,10 @@ function registrarTempo(acertou) {
   let tempoGasto = (Date.now() - tempoInicioPergunta) / 1000;
 
   let jogador = listaJogadores.find(p => p.nome === nomeAtual);
+  if (!jogador) {
+    jogador = { nome: nomeAtual, pontos: 0, tempoTotal: 0 };
+    listaJogadores.push(jogador);
+  }
   if (acertou === true) jogador.pontos++;
   jogador.tempoTotal += tempoGasto;
 
@@ -212,13 +302,13 @@ function registrarTempo(acertou) {
 }
 
 function mostrarRanking(tempoGasto) {
-  document.getElementById("quizScreen").classList.add("hidden");
-  document.getElementById("rankingScreen").classList.remove("hidden");
+  esconderElemento("quizScreen");
+  mostrarElemento("rankingScreen");
 
   document.getElementById("tempoDaPergunta").innerText =
     `Você gastou: ${tempoGasto.toFixed(2)} segundos`;
 
-  // ordenar ranking
+  // ranking local (apenas deste dispositivo)
   listaJogadores.sort((a, b) => {
     if (b.pontos !== a.pontos) return b.pontos - a.pontos;
     return a.tempoTotal - b.tempoTotal;
@@ -238,30 +328,61 @@ function mostrarRanking(tempoGasto) {
 }
 
 function adminDecide() {
-  indexPergunta++;
-  document.getElementById("rankingScreen").classList.add("hidden");
-
-  if (nomeAtual.toLowerCase() === "henrique") {
-    document.getElementById("adminScreen").classList.remove("hidden");
+  esconderElemento("rankingScreen");
+  if (isAdmin) {
+    // volta para painel admin para ele decidir quando soltar a próxima
+    mostrarElemento("adminScreen");
   } else {
-    document.getElementById("waitingScreen").classList.remove("hidden");
+    // jogador volta para tela de espera
+    mostrarElemento("waitingScreen");
   }
 }
 
+// -------------- FINAL LOCAL ----------------
 function finalizarGeral() {
-  document.getElementById("rankingScreen").classList.add("hidden");
-  document.getElementById("resultadoScreen").classList.remove("hidden");
+  esconderElemento("rankingScreen");
+  esconderElemento("quizScreen");
+  esconderElemento("adminScreen");
+  esconderElemento("waitingScreen");
+  mostrarElemento("resultadoScreen");
 
-  let html = "<h3>Ranking Final</h3><table><tr><th>Nome</th><th>Pontos</th><th>Tempo Total</th></tr>";
+  let html =
+    "<h3>Ranking Final (neste dispositivo)</h3><table><tr><th>Nome</th><th>Pontos</th><th>Tempo Total</th></tr>";
 
   listaJogadores.forEach(p => {
     html += `<tr><td>${p.nome}</td><td>${p.pontos}</td><td>${p.tempoTotal.toFixed(2)}s</td></tr>`;
   });
 
   html += "</table>";
-
   document.getElementById("resultadoFinal").innerHTML = html;
 }
+
+// -------------- POLLING NO SERVIDOR (SINCRONIZAÇÃO) ----------------
+function buscarEstadoServidor() {
+  fetch(SCRIPT_URL)
+    .then(r => r.json())
+    .then(data => {
+      estadoServidor = data;
+
+      const numPerg = parseInt(data.pergunta_atual || "0", 10);
+
+      // Se não for admin, ele segue o que o servidor mandar
+      if (!isAdmin && nomeAtual) {
+        if (numPerg > 0 && numPerg !== ultimaPerguntaVista && numPerg <= perguntas.length) {
+          ultimaPerguntaVista = numPerg;
+          indexPergunta = numPerg - 1;
+          exibirPerguntaAtual();
+        }
+        // se pergunta_atual voltar pra 0, não faz nada especial (pode ser fim)
+      }
+    })
+    .catch(err => {
+      console.error("Erro ao buscar estado do servidor:", err);
+    });
+}
+
+// Inicia polling assim que carregar a página
+setInterval(busarEstadoServidor, 1500);
 </script>
 
 </body>
