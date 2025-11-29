@@ -122,7 +122,9 @@
 <div id="qrScreen" class="screen">
   <h1>🔒 Acesso Restrito</h1>
   <p>Escaneie o QR Code para participar</p>
+
   <img src="SEU_QRCODE.png" width="200">
+
   <button onclick="acessarComQR()">Já escaneei</button>
 </div>
 
@@ -133,14 +135,14 @@
   <button onclick="entrar()">Entrar</button>
 </div>
 
-<!-- === SALA COM CONTAGEM === -->
+<!-- === SALA DE ESPERA (LOBBY) === -->
 <div id="posCadastroScreen" class="screen hidden">
   <h1>👥 Participantes Conectados</h1>
   <h2 id="contadorPessoas">0 jogadores</h2>
   <button onclick="irParaEspera()">Continuar</button>
 </div>
 
-<!-- === ESPERA === -->
+<!-- === JOGADOR ESPERA === -->
 <div id="waitingScreen" class="screen hidden">
   <h2>Aguarde o anfitrião iniciar…</h2>
 </div>
@@ -161,30 +163,24 @@
   <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
 </div>
 
-<!-- === RANKING LOCAL === -->
+<!-- === RANKING PARCIAL LOCAL === -->
 <div id="rankingScreen" class="screen hidden">
   <h2>Ranking Parcial</h2>
   <p id="tempoDaPergunta"></p>
 
   <table>
-    <thead>
-      <tr>
-        <th>Jogador</th>
-        <th>Pontos</th>
-        <th>Tempo Total (s)</th>
-      </tr>
-    </thead>
+    <thead><tr><th>Nome</th><th>Pontos</th><th>Tempo</th></tr></thead>
     <tbody id="rankingTabela"></tbody>
   </table>
 
   <button onclick="adminDecide()">Continuar</button>
 </div>
 
-<!-- === RESULTADO FINAL === -->
+<!-- === TELA FINAL === -->
 <div id="resultadoScreen" class="screen hidden">
   <h1>🏆 Resultado Final</h1>
 
-  <!-- Jogadores veem apenas TOP 3 -->
+  <!-- Jogadores veem só o pódio -->
   <div id="podioContainer">
     <div class="podium podium-2">
       <div class="podium-pos">🥈</div>
@@ -205,10 +201,10 @@
     </div>
   </div>
 
-  <!-- ADMIN vê ranking completo -->
+  <!-- ADMIN VÊ RANKING COMPLETO -->
   <div id="rankingAdmin" class="hidden">
     <h2>Ranking Completo</h2>
-    <table style="margin-top:20px;">
+    <table>
       <thead>
         <tr><th>Nome</th><th>Pontos</th><th>Tempo</th></tr>
       </thead>
@@ -220,21 +216,21 @@
 
 
 <script>
-// ===================== CONFIG ======================
+// ============================ CONFIG ============================
 const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
 
-// ---- PERGUNTAS ----
+// ============================ PERGUNTAS ============================
 const perguntas = [
   { pergunta: "Quem apresentou os resultados?", opcoes: ["Pedro", "Henrique", "Saulo", "Bruno"], correta: 1 },
   { pergunta: "Qual foi o tema principal?", opcoes: ["Backlog", "Qualidade", "Rota", "Redelivery"], correta: 2 },
   { pergunta: "Qual HUB evoluiu mais?", opcoes: ["LMG-05", "LMG-62", "Barreiro", "Manaus"], correta: 0 }
 ];
 
-// ---- VARIÁVEIS ----
+
+// ============================ VARIÁVEIS ============================
 let nomeAtual = "";
 let isAdmin = false;
 let listaJogadores = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
-let estadoServidor = {};
 let indexPergunta = 0;
 let ultimaPerguntaVista = 0;
 let tempo = 15;
@@ -242,7 +238,8 @@ let timer;
 let tempoInicioPergunta = 0;
 let jogoFinalizado = false;
 
-// ---- AUX ----
+
+// ============================ FUNÇÕES BASE ============================
 function show(id){ document.getElementById(id).classList.remove("hidden"); }
 function hide(id){ document.getElementById(id).classList.add("hidden"); }
 
@@ -256,20 +253,21 @@ async function postEstado(obj){
   });
 }
 
-// ---- QR → CADASTRO ----
+
+// ============================ FLUXO DE TELA ============================
 function acessarComQR(){
   hide("qrScreen");
   show("cadastroScreen");
 }
 
-// ---- CADASTRO ----
+
+// ============================ CADASTRO ============================
 async function entrar(){
   nomeAtual = document.getElementById("nomeJogador").value.trim();
   if (!nomeAtual) return alert("Digite o nome!");
 
   isAdmin = (nomeAtual.toLowerCase() === "henriquectx");
 
-  // envia cadastro global
   await postEstado({ addPlayer: nomeAtual });
 
   const estado = await getEstado();
@@ -280,13 +278,8 @@ async function entrar(){
   show("posCadastroScreen");
 }
 
-// ---- SALA → ESPERA/ADMIN ----
-function irParaEspera(){
-  hide("posCadastroScreen");
-  isAdmin ? show("adminScreen") : show("waitingScreen");
-}
 
-// ---- LOBBY REAL TIME ----
+// ============================ LOBBY (tempo real) ============================
 async function atualizarLobby(){
   const estado = await getEstado();
   if (!document.getElementById("posCadastroScreen").classList.contains("hidden"))
@@ -294,9 +287,15 @@ async function atualizarLobby(){
       estado.total_jogadores + " jogadores";
 }
 
-// ---- ADMIN → INICIAR ----
+
+// ============================ ADMIN → INICIAR PERGUNTA ============================
+function irParaEspera(){
+  hide("posCadastroScreen");
+  isAdmin ? show("adminScreen") : show("waitingScreen");
+}
+
 async function iniciarPerguntaAdmin(){
-  const estado = await getEstado();
+  let estado = await getEstado();
   let prox = estado.pergunta_atual + 1;
 
   if (prox > perguntas.length){
@@ -313,7 +312,8 @@ async function iniciarPerguntaAdmin(){
   exibirPerguntaAtual();
 }
 
-// ---- EXIBE PERGUNTA ----
+
+// ============================ EXIBIR PERGUNTA ============================
 function exibirPerguntaAtual(){
   hide("waitingScreen");
   hide("adminScreen");
@@ -345,7 +345,8 @@ function exibirPerguntaAtual(){
   },1000);
 }
 
-// ---- RESPONDER ----
+
+// ============================ RESPONDER ============================
 function responder(opcao){
   clearInterval(timer);
   registrarTempo(opcao === perguntas[indexPergunta].correta);
@@ -368,7 +369,8 @@ function registrarTempo(acertou){
   mostrarRanking(tempoGasto);
 }
 
-// ---- RANKING PARCIAL ----
+
+// ============================ RANKING PARCIAL ============================
 function mostrarRanking(tempoGasto){
   hide("quizScreen");
   show("rankingScreen");
@@ -394,18 +396,19 @@ function adminDecide(){
   isAdmin ? show("adminScreen") : show("waitingScreen");
 }
 
-// ---- FINAL ----
+
+// ============================ FINAL ============================
 async function finalizarGeral(){
   if (jogoFinalizado) return;
   jogoFinalizado = true;
 
   hide("rankingScreen");
   hide("quizScreen");
-  hide("adminScreen");
   hide("waitingScreen");
+  hide("adminScreen");
   show("resultadoScreen");
 
-  // Envia MELHOR jogador deste dispositivo
+  // envia resultado do jogador
   listaJogadores.sort((a,b)=>{
     if (b.pontos !== a.pontos) return b.pontos - a.pontos;
     return a.tempoTotal - b.tempoTotal;
@@ -417,13 +420,12 @@ async function finalizarGeral(){
     });
   }
 
-  // Puxa ranking geral
+  // pega ranking completo
   const estado = await getEstado();
-
   const top3 = estado.top3 || [];
   const rankingGeral = estado.ranking || [];
 
-  // ===== Jogadores → só top 3 =====
+  // ==== Preenche top 3 ====
   function fill(pos, data){
     document.getElementById(`podio${pos}Nome`).innerText   = data ? data.nome : "---";
     document.getElementById(`podio${pos}Pontos`).innerText = data ? `${data.pontos} pts • ${data.tempoTotal.toFixed(2)}s` : "";
@@ -433,7 +435,7 @@ async function finalizarGeral(){
   fill(2, top3[1]);
   fill(3, top3[2]);
 
-  // ===== ADMIN → ranking completo =====
+  // ==== Admin vê ranking completo ====
   if (isAdmin){
     show("rankingAdmin");
     let html = "";
@@ -444,36 +446,31 @@ async function finalizarGeral(){
   }
 }
 
-// ---- RESET ----
+
+// ============================ RESET ============================
 async function resetTotal(){
   if (!isAdmin) return;
   if (!confirm("Deseja RESETAR TUDO?")) return;
 
-  await postEstado({
-    pergunta_atual: 0,
-    status: "esperando"
-  });
+  await postEstado({ pergunta_atual: 0, status: "esperando" });
 
-  await postEstado({ addPlayer: "" }); // limpa nada mas força chamadas
-
-  // limpa localStorage
   localStorage.removeItem("quizPlayers");
-
   jogoFinalizado = false;
 
   alert("Resetado!");
+
   hide("resultadoScreen");
   hide("adminScreen");
   show("cadastroScreen");
 }
 
-// ---- POLLING ----
+
+// ============================ POLLING ============================
 setInterval(atualizarLobby,1500);
 setInterval(buscarEstadoServidor,1500);
 
 async function buscarEstadoServidor(){
   const estado = await getEstado();
-  estadoServidor = estado;
 
   const numPerg = estado.pergunta_atual;
 
@@ -488,12 +485,12 @@ async function buscarEstadoServidor(){
       indexPergunta = numPerg - 1;
       exibirPerguntaAtual();
     }
+
     if (estado.status === "finalizado" && !jogoFinalizado){
       finalizarGeral();
     }
   }
 }
-
 </script>
 </body>
 </html>
