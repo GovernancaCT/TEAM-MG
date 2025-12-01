@@ -14,6 +14,7 @@
     }
     .hidden { display: none; }
     .screen { padding: 40px; }
+
     input {
       padding: 10px;
       width: 260px;
@@ -32,6 +33,7 @@
       margin-top: 20px;
     }
     button:hover { opacity: .9; }
+
     .opcao {
       padding: 12px;
       margin: 10px auto;
@@ -41,11 +43,13 @@
       border-radius: 8px;
       cursor: pointer;
     }
+
     .timer {
       margin-top: 20px;
       font-weight: bold;
       font-size: 20px;
     }
+
     table {
       margin: 20px auto;
       width: 90%;
@@ -59,6 +63,7 @@
       background: #FF5722;
       color: white;
     }
+
     #podioContainer {
       margin-top: 30px;
       display: flex;
@@ -108,8 +113,9 @@
     }
     @keyframes subir {
       from { opacity: 0; transform: translateY(40px); }
-      to { opacity: 1; transform: translateY(0); }
+      to   { opacity: 1; transform: translateY(0); }
     }
+
     .playerItem {
       margin: 10px auto;
       padding: 10px;
@@ -125,7 +131,7 @@
 </head>
 <body>
 
-  <!-- QR CODE -->
+  <!-- TELA QR CODE -->
   <div id="qrScreen" class="screen">
     <h1>🔒 Acesso Restrito</h1>
     <p>Escaneie o QR Code para participar</p>
@@ -133,26 +139,26 @@
     <button onclick="acessarComQR()">Já escaneei</button>
   </div>
 
-  <!-- CADASTRO -->
+  <!-- TELA CADASTRO -->
   <div id="cadastroScreen" class="screen hidden">
     <h2>Digite seu nome para entrar</h2>
     <input id="nomeJogador" placeholder="Seu nome">
     <button onclick="entrar()">Entrar</button>
   </div>
 
-  <!-- LOBBY -->
+  <!-- TELA LOBBY -->
   <div id="posCadastroScreen" class="screen hidden">
     <h1>👥 Participantes Conectados</h1>
     <h2 id="contadorPessoas">0 jogadores</h2>
     <button onclick="irParaEspera()">Continuar</button>
   </div>
 
-  <!-- ESPERA -->
+  <!-- TELA ESPERA JOGADOR -->
   <div id="waitingScreen" class="screen hidden">
     <h2>Aguarde o anfitrião iniciar…</h2>
   </div>
 
-  <!-- ADMIN -->
+  <!-- TELA ADMIN -->
   <div id="adminScreen" class="screen hidden">
     <h1>Painel do Anfitrião</h1>
     <p id="infoAdmin"></p>
@@ -162,21 +168,21 @@
     <button style="background:#d60000" onclick="resetTotal()">🗑️ RESET TOTAL (LIMPAR TUDO)</button>
   </div>
 
-  <!-- GERENCIAR JOGADORES -->
+  <!-- TELA GERENCIAR JOGADORES -->
   <div id="gerenciarJogadoresScreen" class="screen hidden">
     <h1>👥 Gerenciar Jogadores</h1>
     <div id="listaJogadoresAdmin"></div>
     <button onclick="voltarAdmin()">⬅ Voltar</button>
   </div>
 
-  <!-- PERGUNTA -->
+  <!-- TELA PERGUNTA -->
   <div id="quizScreen" class="screen hidden">
     <h2 id="perguntaTexto"></h2>
     <div id="opcoes"></div>
     <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
   </div>
 
-  <!-- RANKING -->
+  <!-- TELA RANKING PARCIAL -->
   <div id="rankingScreen" class="screen hidden">
     <h2>Ranking Parcial</h2>
     <p id="tempoDaPergunta"></p>
@@ -193,7 +199,7 @@
     <button onclick="adminDecide()">Continuar</button>
   </div>
 
-  <!-- FINAL -->
+  <!-- TELA FINAL -->
   <div id="resultadoScreen" class="screen hidden">
     <h1>🏆 Resultado Final</h1>
     <div id="podioContainer">
@@ -230,26 +236,30 @@
   </div>
 
   <script>
+    // ===================== CONFIG ======================
     const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
 
     const perguntas = [
       { pergunta: "Qual é o melhor HUB da Regional MG?", opcoes: ["Uberaba", "Ubá", "Contagem 1", "Barreiro"], correta: 0 },
-      { pergunta: "Qual é o maior HUB em Volume?", opcoes: ["Barreiro", "Contagem 1", "Contagem 2", "Vespasiano"], correta: 1 },
-      { pergunta: "Quantos HUBS tem MG?", opcoes: ["22", "24", "26", "28"], correta: 0 },
-      { pergunta: "Quantos HUBS tem CO/N?", opcoes: ["25", "17", "21", "22"], correta: 1 },
-      { pergunta: "Quantos Monitores ?", opcoes: ["22", "20", "25", "26"], correta: 0 }
+      { pergunta: "Qual é o maior HUB em Volume?",      opcoes: ["Barreiro", "Contagem 1", "Contagem 2", "Vespasiano"], correta: 1 },
+      { pergunta: "Quantos HUBS tem MG?",                opcoes: ["22", "24", "26", "28"], correta: 0 },
+      { pergunta: "Quantos HUBS tem CO/N?",              opcoes: ["25", "17", "21", "22"], correta: 1 },
+      { pergunta: "Quantos Monitores ?",                 opcoes: ["22", "20", "25", "26"], correta: 0 }
     ];
 
     let nomeAtual = "";
     let isAdmin = false;
-    let listaJogadores = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
+    let pontos = 0;
+    let tempoTotal = 0;
+
     let indexPergunta = 0;
     let ultimaPerguntaVista = 0;
     let tempo = 15;
-    let timer;
+    let timer = null;
     let tempoInicioPergunta = 0;
     let jogoFinalizado = false;
 
+    // ===================== HELPERS ======================
     function show(id) {
       document.getElementById(id).classList.remove("hidden");
     }
@@ -271,41 +281,39 @@
       });
     }
 
-    async function resetTotal() {
-      if (!isAdmin) return;
-      if (!confirm("TEM CERTEZA que deseja RESETAR TUDO?\nIsso apagará jogadores, ranking, histórico e estado!")) return;
-
-      await postEstado({ resetAll: true });
-      localStorage.removeItem("quizPlayers");
-
-      listaJogadores = [];
-      jogoFinalizado = false;
-      indexPergunta = 0;
-      ultimaPerguntaVista = 0;
-      nomeAtual = "";
-
-      alert("Sistema totalmente resetado!");
-
-      hide("resultadoScreen");
-      hide("adminScreen");
-      hide("quizScreen");
-      hide("rankingScreen");
-      hide("waitingScreen");
-      show("cadastroScreen");
-    }
-
+    // ===================== FLUXO INICIAL ======================
     function acessarComQR() {
       hide("qrScreen");
       show("cadastroScreen");
+
+      const nomeSalvo = localStorage.getItem("quizNome");
+      if (nomeSalvo) {
+        const input = document.getElementById("nomeJogador");
+        if (input) input.value = nomeSalvo;
+      }
     }
 
     async function entrar() {
-      nomeAtual = document.getElementById("nomeJogador").value.trim();
-      if (!nomeAtual) return alert("Digite o nome!");
+      const input = document.getElementById("nomeJogador");
+      nomeAtual = (input.value || "").trim();
+
+      if (!nomeAtual) {
+        alert("Digite o nome!");
+        return;
+      }
 
       isAdmin = (nomeAtual.toLowerCase() === "henriquectx");
+      pontos = 0;
+      tempoTotal = 0;
+      jogoFinalizado = false;
 
-      await postEstado({ addPlayer: nomeAtual });
+      localStorage.setItem("quizNome", nomeAtual);
+
+      try {
+        await postEstado({ addPlayer: nomeAtual });
+      } catch (e) {
+        console.error("Erro ao adicionar jogador:", e);
+      }
 
       hide("cadastroScreen");
       show("posCadastroScreen");
@@ -320,56 +328,93 @@
       }
     }
 
-    async function atualizarLobby() {
+    // ===================== ADMIN FUNCTIONS ======================
+    async function resetTotal() {
       if (!isAdmin) return;
+      const ok = confirm("TEM CERTEZA que deseja RESETAR TUDO?\nIsso apagará jogadores, ranking, histórico e estado!");
+      if (!ok) return;
 
-      const est = await getEstado();
-      const perguntaAtual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
+      try {
+        await postEstado({ resetAll: true });
+      } catch (e) {
+        console.error("Erro ao resetar:", e);
+      }
 
-      document.getElementById("infoAdmin").innerText =
-        `Pergunta atual: ${perguntaAtual}/${perguntas.length}`;
+      pontos = 0;
+      tempoTotal = 0;
+      indexPergunta = 0;
+      ultimaPerguntaVista = 0;
+      jogoFinalizado = false;
+      nomeAtual = "";
+
+      localStorage.removeItem("quizNome");
+
+      alert("Sistema totalmente resetado!");
+
+      hide("resultadoScreen");
+      hide("adminScreen");
+      hide("quizScreen");
+      hide("rankingScreen");
+      hide("waitingScreen");
+      show("cadastroScreen");
     }
 
     async function iniciarPerguntaAdmin() {
-      const est = await getEstado();
-      const atual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
-      const prox = atual + 1;
+      try {
+        const est = await getEstado();
+        const atual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
+        const prox = atual + 1;
 
-      if (prox > perguntas.length) {
-        await postEstado({ pergunta_atual: 0, status: "finalizado" });
-        finalizarGeral();
-        return;
+        if (prox > perguntas.length) {
+          await postEstado({ pergunta_atual: 0, status: "finalizado" });
+          finalizarGeral();
+          return;
+        }
+
+        indexPergunta = prox - 1;
+        ultimaPerguntaVista = prox;
+
+        await postEstado({ pergunta_atual: prox, status: "respondendo" });
+        exibirPerguntaAtual();
+      } catch (e) {
+        console.error("Erro ao iniciar pergunta:", e);
       }
-
-      indexPergunta = prox - 1;
-      ultimaPerguntaVista = prox;
-
-      await postEstado({ pergunta_atual: prox, status: "respondendo" });
-      exibirPerguntaAtual();
     }
 
     async function abrirGerenciarJogadores() {
       hide("adminScreen");
       show("gerenciarJogadoresScreen");
 
-      const est = await getEstado();
-      const players = est.players || [];
+      try {
+        const est = await getEstado();
+        const players = est.players || [];
 
-      let html = "";
-      players.forEach((nome) => {
-        html +=
-          `<div class="playerItem">
-            <span>${nome}</span>
-            <button style="background:#d60000" onclick="removerJogador('${nome}')">Remover</button>
-          </div>`;
-      });
-      document.getElementById("listaJogadoresAdmin").innerHTML = html;
+        let html = "";
+        players.forEach((nome) => {
+          html += `
+            <div class="playerItem">
+              <span>${nome}</span>
+              <button style="background:#d60000" onclick="removerJogador('${nome}')">Remover</button>
+            </div>`;
+        });
+        document.getElementById("listaJogadoresAdmin").innerHTML = html;
+      } catch (e) {
+        console.error("Erro ao carregar jogadores:", e);
+        document.getElementById("listaJogadoresAdmin").innerHTML =
+          "<p>Erro ao carregar jogadores.</p>";
+      }
     }
 
     async function removerJogador(nome) {
-      if (!confirm(`Remover ${nome}?`)) return;
-      await postEstado({ removePlayer: nome });
-      abrirGerenciarJogadores();
+      const ok = confirm(`Remover ${nome}?`);
+      if (!ok) return;
+
+      try {
+        await postEstado({ removePlayer: nome });
+        await abrirGerenciarJogadores();
+      } catch (e) {
+        console.error("Erro ao remover jogador:", e);
+      }
     }
 
     function voltarAdmin() {
@@ -377,6 +422,7 @@
       show("adminScreen");
     }
 
+    // ===================== QUIZ ======================
     function exibirPerguntaAtual() {
       hide("waitingScreen");
       hide("adminScreen");
@@ -403,11 +449,14 @@
       clearInterval(timer);
       timer = setInterval(() => {
         tempo--;
+        if (tempo < 0) tempo = 0;
         document.getElementById("tempo").innerText = tempo;
 
         if (tempo <= 0) {
           clearInterval(timer);
-          if (!isAdmin) registrarTempo(false);
+          if (!isAdmin) {
+            registrarResposta(false);
+          }
         }
       }, 1000);
     }
@@ -415,51 +464,65 @@
     function responder(opcao) {
       if (isAdmin) return;
       clearInterval(timer);
+
       const acertou = (opcao === perguntas[indexPergunta].correta);
-      registrarTempo(acertou);
+      registrarResposta(acertou);
     }
 
-    function registrarTempo(acertou) {
+    async function registrarResposta(acertou) {
       const tempoGasto = (Date.now() - tempoInicioPergunta) / 1000;
 
-      let p = listaJogadores.find((x) => x.nome === nomeAtual);
-      if (!p) {
-        p = { nome: nomeAtual, pontos: 0, tempoTotal: 0 };
-        listaJogadores.push(p);
-      }
-
       if (acertou === true) {
-        p.pontos++;
+        pontos++;
       }
-      p.tempoTotal += tempoGasto;
+      tempoTotal += tempoGasto;
 
-      localStorage.setItem("quizPlayers", JSON.stringify(listaJogadores));
+      try {
+        await postEstado({
+          addRanking: {
+            nome: nomeAtual,
+            pontos,
+            tempoTotal
+          }
+        });
+      } catch (e) {
+        console.error("Erro ao enviar ranking:", e);
+      }
 
-      mostrarRanking(tempoGasto);
+      await mostrarRanking(tempoGasto);
     }
 
-    function mostrarRanking(tempoGasto) {
+    async function mostrarRanking(tempoGasto) {
       hide("quizScreen");
       show("rankingScreen");
 
       document.getElementById("tempoDaPergunta").innerText =
         `Você gastou: ${tempoGasto.toFixed(2)}s`;
 
-      listaJogadores.sort((a, b) => {
-        if (b.pontos !== a.pontos) return b.pontos - a.pontos;
-        return a.tempoTotal - b.tempoTotal;
-      });
+      try {
+        const est = await getEstado();
+        const ranking = est.ranking || [];
 
-      let html = "";
-      listaJogadores.forEach((p) => {
-        html +=
-          `<tr>
-            <td>${p.nome}</td>
-            <td>${p.pontos}</td>
-            <td>${p.tempoTotal.toFixed(2)}</td>
-          </tr>`;
-      });
-      document.getElementById("rankingTabela").innerHTML = html;
+        let html = "";
+        ranking.forEach((p) => {
+          html += `
+            <tr>
+              <td>${p.nome}</td>
+              <td>${p.pontos}</td>
+              <td>${p.tempoTotal.toFixed(2)}</td>
+            </tr>`;
+        });
+
+        if (!html) {
+          html = `<tr><td colspan="3">Nenhum resultado ainda.</td></tr>`;
+        }
+
+        document.getElementById("rankingTabela").innerHTML = html;
+      } catch (e) {
+        console.error("Erro ao buscar ranking:", e);
+        document.getElementById("rankingTabela").innerHTML =
+          `<tr><td colspan="3">Erro ao carregar ranking.</td></tr>`;
+      }
     }
 
     function adminDecide() {
@@ -471,6 +534,7 @@
       }
     }
 
+    // ===================== FINALIZAÇÃO ======================
     async function finalizarGeral() {
       if (jogoFinalizado) return;
       jogoFinalizado = true;
@@ -481,79 +545,108 @@
       hide("waitingScreen");
       show("resultadoScreen");
 
-      // Ordena lista local (só deste navegador)
-      listaJogadores.sort((a, b) => {
-        if (b.pontos !== a.pontos) return b.pontos - a.pontos;
-        return a.tempoTotal - b.tempoTotal;
-      });
+      try {
+        // Garantir que o servidor tenha o último estado deste jogador
+        if (nomeAtual) {
+          await postEstado({
+            addRanking: {
+              nome: nomeAtual,
+              pontos,
+              tempoTotal
+            }
+          });
+        }
 
-      if (listaJogadores[0]) {
-        await postEstado({ addRanking: listaJogadores[0] });
-      }
+        const est = await getEstado();
+        const top3 = est.top3 || [];
+        const rankingGeral = est.ranking || [];
 
-      const est = await getEstado();
-      const top3 = est.top3 || [];
-      const rankingGeral = est.ranking || [];
+        function fill(pos, data) {
+          const nomeEl = document.getElementById(`podio${pos}Nome`);
+          const pontosEl = document.getElementById(`podio${pos}Pontos`);
 
-      function fill(pos, data) {
-        document.getElementById(`podio${pos}Nome`).innerText =
-          data ? data.nome : "---";
-        document.getElementById(`podio${pos}Pontos`).innerText =
-          data ? `${data.pontos} pts • ${data.tempoTotal.toFixed(2)}s` : "";
-      }
+          if (data) {
+            nomeEl.textContent = data.nome;
+            pontosEl.textContent =
+              `${data.pontos} pts • ${data.tempoTotal.toFixed(2)}s`;
+          } else {
+            nomeEl.textContent = "---";
+            pontosEl.textContent = "";
+          }
+        }
 
-      fill(1, top3[0]);
-      fill(2, top3[1]);
-      fill(3, top3[2]);
+        fill(1, top3[0]);
+        fill(2, top3[1]);
+        fill(3, top3[2]);
 
-      if (isAdmin) {
-        show("rankingAdmin");
+        if (isAdmin) {
+          show("rankingAdmin");
 
-        let html = "";
-        rankingGeral.forEach((r) => {
-          html +=
-            `<tr>
-              <td>${r.nome}</td>
-              <td>${r.pontos}</td>
-              <td>${r.tempoTotal.toFixed(2)}</td>
-            </tr>`;
-        });
-        document.getElementById("rankingAdminTabela").innerHTML = html;
+          let html = "";
+          rankingGeral.forEach((r) => {
+            html += `
+              <tr>
+                <td>${r.nome}</td>
+                <td>${r.pontos}</td>
+                <td>${r.tempoTotal.toFixed(2)}</td>
+              </tr>`;
+          });
+
+          if (!html) {
+            html = `<tr><td colspan="3">Nenhum resultado.</td></tr>`;
+          }
+
+          document.getElementById("rankingAdminTabela").innerHTML = html;
+        }
+      } catch (e) {
+        console.error("Erro ao finalizar:", e);
       }
     }
 
-    // Atualizações periódicas
-    setInterval(atualizarLobby, 1500);
-    setInterval(buscarEstadoServidor, 1500);
-
+    // ===================== POLLING GLOBAL ======================
     async function buscarEstadoServidor() {
-      const est = await getEstado();
-      const perguntaAtual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
-      const players = est.players || [];
+      try {
+        const est = await getEstado();
+        const perguntaAtual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
+        const totalJogadores = est.total_jogadores || 0;
+        const status = est.status || "esperando";
 
-      // Atualiza contador de pessoas no lobby para todos
-      const contador = document.getElementById("contadorPessoas");
-      if (contador) {
-        const qtd = players.length;
-        contador.innerText = `${qtd} jogador${qtd === 1 ? "" : "es"}`;
-      }
-
-      if (isAdmin) {
-        document.getElementById("infoAdmin").innerText =
-          `Pergunta atual: ${perguntaAtual}/${perguntas.length}`;
-      }
-
-      if (!isAdmin) {
-        if (perguntaAtual > 0 && perguntaAtual !== ultimaPerguntaVista) {
-          ultimaPerguntaVista = perguntaAtual;
-          indexPergunta = perguntaAtual - 1;
-          exibirPerguntaAtual();
+        // Atualiza contador de jogadores (lobby)
+        const contador = document.getElementById("contadorPessoas");
+        if (contador) {
+          contador.innerText =
+            `${totalJogadores} jogador${totalJogadores === 1 ? "" : "es"}`;
         }
-        if (est.status === "finalizado" && !jogoFinalizado) {
-          finalizarGeral();
+
+        // Info admin
+        if (isAdmin) {
+          const info = document.getElementById("infoAdmin");
+          if (info) {
+            info.innerText =
+              `Pergunta atual: ${perguntaAtual}/${perguntas.length} • ` +
+              `Status: ${status}`;
+          }
         }
+
+        // Jogador comum acompanha início das perguntas e finalização
+        if (!isAdmin) {
+          if (perguntaAtual > 0 && perguntaAtual !== ultimaPerguntaVista) {
+            ultimaPerguntaVista = perguntaAtual;
+            indexPergunta = perguntaAtual - 1;
+            exibirPerguntaAtual();
+          }
+
+          if (status === "finalizado" && !jogoFinalizado) {
+            finalizarGeral();
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao buscar estado:", e);
       }
     }
+
+    // Faz polling a cada 1.5s
+    setInterval(buscarEstadoServidor, 1500);
   </script>
 </body>
 </html>
