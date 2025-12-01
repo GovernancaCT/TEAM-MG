@@ -98,7 +98,6 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* ===== ADMIN LISTA ===== */
   .playerItem {
     margin: 10px auto;
     padding: 10px;
@@ -139,7 +138,7 @@
   <button onclick="irParaEspera()">Continuar</button>
 </div>
 
-<!-- ======================= ESPERA JOGADOR ======================= -->
+<!-- ======================= ESPERA ======================= -->
 <div id="waitingScreen" class="screen hidden">
   <h2>Aguarde o anfitrião iniciar…</h2>
 </div>
@@ -153,7 +152,9 @@
   <button onclick="abrirGerenciarJogadores()">👥 Participantes Conectados</button>
 
   <br><br>
-  <button style="background:#d60000" onclick="resetTotal()">🔄 Reset Geral</button>
+
+  <!-- 🔥 BOTÃO DE RESET TOTAL -->
+  <button style="background:#d60000" onclick="resetTotal()">🗑️ RESET TOTAL (LIMPAR TUDO)</button>
 </div>
 
 <!-- ======================= GERENCIAR JOGADORES ======================= -->
@@ -170,7 +171,7 @@
   <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
 </div>
 
-<!-- ======================= RANKING PARCIAL ======================= -->
+<!-- ======================= RANKING ======================= -->
 <div id="rankingScreen" class="screen hidden">
   <h2>Ranking Parcial</h2>
   <p id="tempoDaPergunta"></p>
@@ -183,7 +184,7 @@
   <button onclick="adminDecide()">Continuar</button>
 </div>
 
-<!-- ======================= TELA FINAL ======================= -->
+<!-- ======================= FINAL ======================= -->
 <div id="resultadoScreen" class="screen hidden">
   <h1>🏆 Resultado Final</h1>
 
@@ -214,13 +215,12 @@
       <tbody id="rankingAdminTabela"></tbody>
     </table>
   </div>
-
 </div>
 
 
 <script>
 // =========================================================
-// ===================== CONFIG ============================
+// CONFIG
 // =========================================================
 const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
 
@@ -234,7 +234,7 @@ const perguntas = [
 
 
 // =========================================================
-// ===================== VARIÁVEIS =========================
+// VARIÁVEIS
 // =========================================================
 let nomeAtual = "";
 let isAdmin = false;
@@ -248,7 +248,7 @@ let jogoFinalizado = false;
 
 
 // =========================================================
-// ========== FUNÇÕES DE TELA ==============================
+// UTILIDADES
 // =========================================================
 function show(id){ document.getElementById(id).classList.remove("hidden"); }
 function hide(id){ document.getElementById(id).classList.add("hidden"); }
@@ -260,19 +260,50 @@ async function postEstado(obj){
 }
 
 
+// =========================================================
+// RESET TOTAL – LIMPA TUDO DO SERVIDOR E DO CLIENTE
+// =========================================================
+async function resetTotal(){
+  if (!isAdmin) return;
 
-// =========================================================
-// ===================== FLUXO: QR → CADASTRO ===============
-// =========================================================
-function acessarComQR(){
-  hide("qrScreen");
+  if (!confirm("TEM CERTEZA que deseja RESETAR TUDO?\nIsso apagará jogadores, ranking, histórico e estado!")) 
+    return;
+
+  // Apaga tudo no servidor
+  await postEstado({ resetAll: true });
+
+  // Apaga tudo no dispositivo do jogador
+  localStorage.removeItem("quizPlayers");
+
+  // Reseta variáveis internas
+  listaJogadores = [];
+  jogoFinalizado = false;
+  indexPergunta = 0;
+  ultimaPerguntaVista = 0;
+  nomeAtual = "";
+
+  alert("Sistema totalmente resetado!");
+
+  // Volta para o cadastro
+  hide("resultadoScreen");
+  hide("adminScreen");
+  hide("quizScreen");
+  hide("rankingScreen");
+  hide("waitingScreen");
+
   show("cadastroScreen");
 }
 
 
 // =========================================================
-// ===================== CADASTRO ===========================
+// DEMAIS FUNÇÕES (iguais às originais)
 // =========================================================
+
+function acessarComQR(){
+  hide("qrScreen");
+  show("cadastroScreen");
+}
+
 async function entrar(){
   nomeAtual = document.getElementById("nomeJogador").value.trim();
   if (!nomeAtual) return alert("Digite o nome!");
@@ -290,10 +321,6 @@ async function entrar(){
   show("posCadastroScreen");
 }
 
-
-// =========================================================
-// ===================== SALA DE ESPERA =====================
-// =========================================================
 function irParaEspera(){
   hide("posCadastroScreen");
   isAdmin ? show("adminScreen") : show("waitingScreen");
@@ -306,11 +333,6 @@ async function atualizarLobby(){
       est.total_jogadores + " jogadores";
 }
 
-
-
-// =========================================================
-// ===================== ADMIN → PERGUNTA ===================
-// =========================================================
 async function iniciarPerguntaAdmin(){
   let est = await getEstado();
   let prox = est.pergunta_atual + 1;
@@ -329,11 +351,6 @@ async function iniciarPerguntaAdmin(){
   exibirPerguntaAtual();
 }
 
-
-
-// =========================================================
-// ===================== GERENCIAR JOGADORES ===============
-// =========================================================
 async function abrirGerenciarJogadores(){
   hide("adminScreen");
   show("gerenciarJogadoresScreen");
@@ -367,11 +384,6 @@ function voltarAdmin(){
   show("adminScreen");
 }
 
-
-
-// =========================================================
-// ===================== EXIBIR PERGUNTA ====================
-// =========================================================
 function exibirPerguntaAtual(){
   hide("waitingScreen");
   hide("adminScreen");
@@ -403,11 +415,6 @@ function exibirPerguntaAtual(){
   },1000);
 }
 
-
-
-// =========================================================
-// ===================== RESPOSTA ===========================
-// =========================================================
 function responder(opcao){
   clearInterval(timer);
   registrarTempo(opcao === perguntas[indexPergunta].correta);
@@ -430,11 +437,6 @@ function registrarTempo(acertou){
   mostrarRanking(tempoGasto);
 }
 
-
-
-// =========================================================
-// ===================== RANKING PARCIAL ====================
-// =========================================================
 function mostrarRanking(tempoGasto){
   hide("quizScreen");
   show("rankingScreen");
@@ -460,11 +462,6 @@ function adminDecide(){
   isAdmin ? show("adminScreen") : show("waitingScreen");
 }
 
-
-
-// =========================================================
-// ===================== FINAL ===============================
-// =========================================================
 async function finalizarGeral(){
   if (jogoFinalizado) return;
   jogoFinalizado = true;
@@ -508,29 +505,8 @@ async function finalizarGeral(){
 }
 
 
-
 // =========================================================
-// ===================== RESET ==============================
-// =========================================================
-async function resetTotal(){
-  if (!isAdmin) return;
-  if (!confirm("Deseja RESETAR TUDO?")) return;
-
-  await postEstado({ pergunta_atual: 0, status:"esperando" });
-  localStorage.removeItem("quizPlayers");
-  jogoFinalizado = false;
-
-  alert("Resetado!");
-
-  hide("resultadoScreen");
-  hide("adminScreen");
-  show("cadastroScreen");
-}
-
-
-
-// =========================================================
-// ===================== POLLING ============================
+// POLLING
 // =========================================================
 setInterval(atualizarLobby,1500);
 setInterval(buscarEstadoServidor,1500);
@@ -560,5 +536,3 @@ async function buscarEstadoServidor(){
 
 </body>
 </html>
-
-
