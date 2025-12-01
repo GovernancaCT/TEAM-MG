@@ -1,281 +1,559 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz da Reunião</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz da Reunião</title>
 
-<style>
-  body { margin:0; font-family:Arial,sans-serif; background:#f4f4f9; text-align:center; }
-  .hidden { display:none; }
-  .screen { padding:40px; }
-  input { padding:10px; width:260px; border-radius:6px; border:1px solid #aaa; font-size:16px; }
-  button { padding:12px 20px; background:#FF5722; border:none; border-radius:8px; font-size:18px; color:#fff; cursor:pointer; margin-top:20px; }
-  button:hover { opacity:.9; }
-  .opcao { padding:12px; margin:10px auto; background:#fff; border:2px solid #FF5722; width:80%; border-radius:8px; cursor:pointer; }
-  .timer { margin-top:20px; font-weight:bold; font-size:20px; }
-  table { margin:20px auto; width:90%; border-collapse:collapse; }
-  th, td { padding:10px; border:1px solid #ccc; }
-  th { background:#FF5722; color:white; }
-  #podioContainer { margin-top:30px; display:flex; justify-content:center; gap:20px; }
-  .podium { width:120px; border-radius:12px 12px 0 0; background:#FF9800; color:#fff; padding:10px 5px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.25); opacity:0; transform:translateY(40px); animation:subir 0.8s ease-out forwards; }
-  .podium-1 { height:220px; background:#FFC107; animation-delay:.2s; }
-  .podium-2 { height:170px; background:#FF9800; animation-delay:0s; }
-  .podium-3 { height:150px; background:#FFB74D; animation-delay:.4s; }
-  .podium-pos { font-size:20px; font-weight:bold; margin-bottom:8px; }
-  .podium-name { font-size:14px; font-weight:bold; margin-bottom:6px; }
-  .podium-points { font-size:12px; opacity:.9; }
-  @keyframes subir { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
-  .playerItem { margin:10px auto; padding:10px; width:300px; box-shadow:0 0 6px rgba(0,0,0,0.15); border-radius:8px; background:white; display:flex; justify-content:space-between; align-items:center; }
-</style>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f9;
+      text-align: center;
+    }
+    .hidden { display: none; }
+    .screen { padding: 40px; }
+    input {
+      padding: 10px;
+      width: 260px;
+      border-radius: 6px;
+      border: 1px solid #aaa;
+      font-size: 16px;
+    }
+    button {
+      padding: 12px 20px;
+      background: #FF5722;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      color: #fff;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover { opacity: .9; }
+    .opcao {
+      padding: 12px;
+      margin: 10px auto;
+      background: #fff;
+      border: 2px solid #FF5722;
+      width: 80%;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .timer {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 20px;
+    }
+    table {
+      margin: 20px auto;
+      width: 90%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    th {
+      background: #FF5722;
+      color: white;
+    }
+    #podioContainer {
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    .podium {
+      width: 120px;
+      border-radius: 12px 12px 0 0;
+      background: #FF9800;
+      color: #fff;
+      padding: 10px 5px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      opacity: 0;
+      transform: translateY(40px);
+      animation: subir 0.8s ease-out forwards;
+    }
+    .podium-1 {
+      height: 220px;
+      background: #FFC107;
+      animation-delay: .2s;
+    }
+    .podium-2 {
+      height: 170px;
+      background: #FF9800;
+      animation-delay: 0s;
+    }
+    .podium-3 {
+      height: 150px;
+      background: #FFB74D;
+      animation-delay: .4s;
+    }
+    .podium-pos {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .podium-name {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    .podium-points {
+      font-size: 12px;
+      opacity: .9;
+    }
+    @keyframes subir {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .playerItem {
+      margin: 10px auto;
+      padding: 10px;
+      width: 300px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.15);
+      border-radius: 8px;
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
 </head>
 <body>
 
-<!-- QR CODE -->
-<div id="qrScreen" class="screen">
-  <h1>🔒 Acesso Restrito</h1>
-  <p>Escaneie o QR Code para participar</p>
-  <img src="SEU_QRCODE.png" width="200">
-  <button onclick="acessarComQR()">Já escaneei</button>
-</div>
-
-<!-- CADASTRO -->
-<div id="cadastroScreen" class="screen hidden">
-  <h2>Digite seu nome para entrar</h2>
-  <input id="nomeJogador" placeholder="Seu nome">
-  <button onclick="entrar()">Entrar</button>
-</div>
-
-<!-- LOBBY -->
-<div id="posCadastroScreen" class="screen hidden">
-  <h1>👥 Participantes Conectados</h1>
-  <h2 id="contadorPessoas">0 jogadores</h2>
-  <button onclick="irParaEspera()">Continuar</button>
-</div>
-
-<!-- ESPERA -->
-<div id="waitingScreen" class="screen hidden">
-  <h2>Aguarde o anfitrião iniciar…</h2>
-</div>
-
-<!-- ADMIN -->
-<div id="adminScreen" class="screen hidden">
-  <h1>Painel do Anfitrião</h1>
-  <p id="infoAdmin"></p>
-  <button onclick="iniciarPerguntaAdmin()">▶ Iniciar Próxima Pergunta</button>
-  <button onclick="abrirGerenciarJogadores()">👥 Participantes Conectados</button>
-  <br><br>
-  <button style="background:#d60000" onclick="resetTotal()">🗑️ RESET TOTAL (LIMPAR TUDO)</button>
-</div>
-
-<!-- GERENCIAR JOGADORES -->
-<div id="gerenciarJogadoresScreen" class="screen hidden">
-  <h1>👥 Gerenciar Jogadores</h1>
-  <div id="listaJogadoresAdmin"></div>
-  <button onclick="voltarAdmin()">⬅ Voltar</button>
-</div>
-
-<!-- PERGUNTA -->
-<div id="quizScreen" class="screen hidden">
-  <h2 id="perguntaTexto"></h2>
-  <div id="opcoes"></div>
-  <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
-</div>
-
-<!-- RANKING -->
-<div id="rankingScreen" class="screen hidden">
-  <h2>Ranking Parcial</h2>
-  <p id="tempoDaPergunta"></p>
-  <table>
-    <thead><tr><th>Nome</th><th>Pontos</th><th>Tempo</th></tr></thead>
-    <tbody id="rankingTabela"></tbody>
-  </table>
-  <button onclick="adminDecide()">Continuar</button>
-</div>
-
-<!-- FINAL -->
-<div id="resultadoScreen" class="screen hidden">
-  <h1>🏆 Resultado Final</h1>
-  <div id="podioContainer">
-    <div class="podium podium-2">
-      <div class="podium-pos">🥈</div>
-      <div class="podium-name" id="podio2Nome">---</div>
-      <div class="podium-points" id="podio2Pontos"></div>
-    </div>
-    <div class="podium podium-1">
-      <div class="podium-pos">🥇</div>
-      <div class="podium-name" id="podio1Nome">---</div>
-      <div class="podium-points" id="podio1Pontos"></div>
-    </div>
-    <div class="podium podium-3">
-      <div class="podium-pos">🥉</div>
-      <div class="podium-name" id="podio3Nome">---</div>
-      <div class="podium-points" id="podio3Pontos"></div>
-    </div>
+  <!-- QR CODE -->
+  <div id="qrScreen" class="screen">
+    <h1>🔒 Acesso Restrito</h1>
+    <p>Escaneie o QR Code para participar</p>
+    <img src="SEU_QRCODE.png" width="200" alt="QR Code para entrar">
+    <button onclick="acessarComQR()">Já escaneei</button>
   </div>
-  <div id="rankingAdmin" class="hidden">
-    <h2>Ranking Completo</h2>
+
+  <!-- CADASTRO -->
+  <div id="cadastroScreen" class="screen hidden">
+    <h2>Digite seu nome para entrar</h2>
+    <input id="nomeJogador" placeholder="Seu nome">
+    <button onclick="entrar()">Entrar</button>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="posCadastroScreen" class="screen hidden">
+    <h1>👥 Participantes Conectados</h1>
+    <h2 id="contadorPessoas">0 jogadores</h2>
+    <button onclick="irParaEspera()">Continuar</button>
+  </div>
+
+  <!-- ESPERA -->
+  <div id="waitingScreen" class="screen hidden">
+    <h2>Aguarde o anfitrião iniciar…</h2>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="adminScreen" class="screen hidden">
+    <h1>Painel do Anfitrião</h1>
+    <p id="infoAdmin"></p>
+    <button onclick="iniciarPerguntaAdmin()">▶ Iniciar Próxima Pergunta</button>
+    <button onclick="abrirGerenciarJogadores()">👥 Participantes Conectados</button>
+    <br><br>
+    <button style="background:#d60000" onclick="resetTotal()">🗑️ RESET TOTAL (LIMPAR TUDO)</button>
+  </div>
+
+  <!-- GERENCIAR JOGADORES -->
+  <div id="gerenciarJogadoresScreen" class="screen hidden">
+    <h1>👥 Gerenciar Jogadores</h1>
+    <div id="listaJogadoresAdmin"></div>
+    <button onclick="voltarAdmin()">⬅ Voltar</button>
+  </div>
+
+  <!-- PERGUNTA -->
+  <div id="quizScreen" class="screen hidden">
+    <h2 id="perguntaTexto"></h2>
+    <div id="opcoes"></div>
+    <div class="timer">⏳ Tempo: <span id="tempo">15</span>s</div>
+  </div>
+
+  <!-- RANKING -->
+  <div id="rankingScreen" class="screen hidden">
+    <h2>Ranking Parcial</h2>
+    <p id="tempoDaPergunta"></p>
     <table>
-      <thead><tr><th>Nome</th><th>Pontos</th><th>Tempo</th></tr></thead>
-      <tbody id="rankingAdminTabela"></tbody>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Pontos</th>
+          <th>Tempo</th>
+        </tr>
+      </thead>
+      <tbody id="rankingTabela"></tbody>
     </table>
+    <button onclick="adminDecide()">Continuar</button>
   </div>
-</div>
 
-<script>
-const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
+  <!-- FINAL -->
+  <div id="resultadoScreen" class="screen hidden">
+    <h1>🏆 Resultado Final</h1>
+    <div id="podioContainer">
+      <div class="podium podium-2">
+        <div class="podium-pos">🥈</div>
+        <div class="podium-name" id="podio2Nome">---</div>
+        <div class="podium-points" id="podio2Pontos"></div>
+      </div>
+      <div class="podium podium-1">
+        <div class="podium-pos">🥇</div>
+        <div class="podium-name" id="podio1Nome">---</div>
+        <div class="podium-points" id="podio1Pontos"></div>
+      </div>
+      <div class="podium podium-3">
+        <div class="podium-pos">🥉</div>
+        <div class="podium-name" id="podio3Nome">---</div>
+        <div class="podium-points" id="podio3Pontos"></div>
+      </div>
+    </div>
 
-const perguntas = [
-  { pergunta: "Qual é o melhor HUB da Regional MG?", opcoes: ["Uberaba","Ubá","Contagem 1","Barreiro"], correta:0 },
-  { pergunta: "Qual é o maior HUB em Volume?", opcoes: ["Barreiro","Contagem 1","Contagem 2","Vespasiano"], correta:1 },
-  { pergunta: "Quantos HUBS tem MG?", opcoes: ["22","24","26","28"], correta:0 },
-  { pergunta: "Quantos HUBS tem CO/N?", opcoes: ["25","17","21","22"], correta:1 },
-  { pergunta: "Quantos Monitores ?", opcoes: ["22","20","25","26"], correta:0 },
-];
+    <div id="rankingAdmin" class="hidden">
+      <h2>Ranking Completo</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Pontos</th>
+            <th>Tempo</th>
+          </tr>
+        </thead>
+        <tbody id="rankingAdminTabela"></tbody>
+      </table>
+    </div>
+  </div>
 
-let nomeAtual = "";
-let isAdmin = false;
-let listaJogadores = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
-let indexPergunta = 0;
-let ultimaPerguntaVista = 0;
-let tempo = 15;
-let timer;
-let tempoInicioPergunta = 0;
-let jogoFinalizado = false;
+  <script>
+    const SCRIPT_URL = "https://bitter-dew-fe17.henrique-teixeira.workers.dev/";
 
-function show(id){ document.getElementById(id).classList.remove("hidden"); }
-function hide(id){ document.getElementById(id).classList.add("hidden"); }
+    const perguntas = [
+      { pergunta: "Qual é o melhor HUB da Regional MG?", opcoes: ["Uberaba", "Ubá", "Contagem 1", "Barreiro"], correta: 0 },
+      { pergunta: "Qual é o maior HUB em Volume?", opcoes: ["Barreiro", "Contagem 1", "Contagem 2", "Vespasiano"], correta: 1 },
+      { pergunta: "Quantos HUBS tem MG?", opcoes: ["22", "24", "26", "28"], correta: 0 },
+      { pergunta: "Quantos HUBS tem CO/N?", opcoes: ["25", "17", "21", "22"], correta: 1 },
+      { pergunta: "Quantos Monitores ?", opcoes: ["22", "20", "25", "26"], correta: 0 }
+    ];
 
-async function getEstado(){ return (await fetch(SCRIPT_URL)).json(); }
-async function postEstado(obj){ await fetch(SCRIPT_URL,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj) }); }
+    let nomeAtual = "";
+    let isAdmin = false;
+    let listaJogadores = JSON.parse(localStorage.getItem("quizPlayers") || "[]");
+    let indexPergunta = 0;
+    let ultimaPerguntaVista = 0;
+    let tempo = 15;
+    let timer;
+    let tempoInicioPergunta = 0;
+    let jogoFinalizado = false;
 
-async function resetTotal(){
-  if(!isAdmin) return;
-  if(!confirm("TEM CERTEZA que deseja RESETAR TUDO?\nIsso apagará jogadores, ranking, histórico e estado!")) return;
-  await postEstado({ resetAll:true });
-  localStorage.removeItem("quizPlayers");
-  listaJogadores=[]; jogoFinalizado=false; indexPergunta=0; ultimaPerguntaVista=0; nomeAtual="";
-  alert("Sistema totalmente resetado!");
-  hide("resultadoScreen"); hide("adminScreen"); hide("quizScreen"); hide("rankingScreen"); hide("waitingScreen");
-  show("cadastroScreen");
-}
+    function show(id) {
+      document.getElementById(id).classList.remove("hidden");
+    }
 
-function acessarComQR(){ hide("qrScreen"); show("cadastroScreen"); }
+    function hide(id) {
+      document.getElementById(id).classList.add("hidden");
+    }
 
-async function entrar(){
-  nomeAtual=document.getElementById("nomeJogador").value.trim();
-  if(!nomeAtual) return alert("Digite o nome!");
-  isAdmin=(nomeAtual.toLowerCase()==="henriquectx");
-  await postEstado({ addPlayer:nomeAtual });
-  hide("cadastroScreen"); show("posCadastroScreen");
-}
+    async function getEstado() {
+      const resp = await fetch(SCRIPT_URL);
+      return resp.json();
+    }
 
-function irParaEspera(){ hide("posCadastroScreen"); isAdmin?show("adminScreen"):show("waitingScreen"); }
+    async function postEstado(obj) {
+      await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(obj)
+      });
+    }
 
-async function atualizarLobby(){
-  if(isAdmin){
-    const est=await getEstado();
-    document.getElementById("infoAdmin").innerText=`Pergunta atual: ${est.pergunta_atual}/${perguntas.length}`;
-  }
-}
+    async function resetTotal() {
+      if (!isAdmin) return;
+      if (!confirm("TEM CERTEZA que deseja RESETAR TUDO?\nIsso apagará jogadores, ranking, histórico e estado!")) return;
 
-async function iniciarPerguntaAdmin(){
-  let est=await getEstado();
-  let prox=est.pergunta_atual+1;
-  if(prox>perguntas.length){
-    await postEstado({ pergunta_atual:0, status:"finalizado" }); finalizarGeral(); return;
-  }
-  indexPergunta=prox-1; ultimaPerguntaVista=prox;
-  await postEstado({ pergunta_atual:prox, status:"respondendo" });
-  exibirPerguntaAtual();
-}
+      await postEstado({ resetAll: true });
+      localStorage.removeItem("quizPlayers");
 
-async function abrirGerenciarJogadores(){
-  hide("adminScreen"); show("gerenciarJogadoresScreen");
-  const est=await getEstado();
-  const players=est.players||[];
-  let html="";
-  players.forEach(nome=>{
-    html+=`<div class="playerItem"><span>${nome}</span><button style="background:#d60000" onclick="removerJogador('${nome}')">Remover</button></div>`;
-  });
-  document.getElementById("listaJogadoresAdmin").innerHTML=html;
-}
+      listaJogadores = [];
+      jogoFinalizado = false;
+      indexPergunta = 0;
+      ultimaPerguntaVista = 0;
+      nomeAtual = "";
 
-async function removerJogador(nome){
-  if(!confirm(`Remover ${nome}?`)) return;
-  await postEstado({ removePlayer:nome });
-  abrirGerenciarJogadores();
-}
+      alert("Sistema totalmente resetado!");
 
-function voltarAdmin(){ hide("gerenciarJogadoresScreen"); show("adminScreen"); }
+      hide("resultadoScreen");
+      hide("adminScreen");
+      hide("quizScreen");
+      hide("rankingScreen");
+      hide("waitingScreen");
+      show("cadastroScreen");
+    }
 
-function exibirPerguntaAtual(){
-  hide("waitingScreen"); hide("adminScreen"); hide("rankingScreen"); show("quizScreen");
-  const q=perguntas[indexPergunta];
-  document.getElementById("perguntaTexto").innerText=q.pergunta;
-  let html="";
-  if(!isAdmin){
-    q.opcoes.forEach((opc,i)=>{ html+=`<div class='opcao' onclick='responder(${i})'>${opc}</div>`; });
-  } else html=`<p>Você é admin. Apenas observando o tempo.</p>`;
-  document.getElementById("opcoes").innerHTML=html;
-  tempo=15; document.getElementById("tempo").innerText=tempo;
-  tempoInicioPergunta=Date.now(); clearInterval(timer);
-  timer=setInterval(()=>{
-    tempo--; document.getElementById("tempo").innerText=tempo;
-    if(tempo<=0){ clearInterval(timer); if(!isAdmin) registrarTempo(-1); }
-  },1000);
-}
+    function acessarComQR() {
+      hide("qrScreen");
+      show("cadastroScreen");
+    }
 
-function responder(opcao){
-  if(isAdmin) return; clearInterval(timer);
-  registrarTempo(opcao===perguntas[indexPergunta].correta);
-}
+    async function entrar() {
+      nomeAtual = document.getElementById("nomeJogador").value.trim();
+      if (!nomeAtual) return alert("Digite o nome!");
 
-function registrarTempo(acertou){
-  let tempoGasto=(Date.now()-tempoInicioPergunta)/1000;
-  let p=listaJogadores.find(x=>x.nome===nomeAtual);
-  if(!p){ p={nome:nomeAtual,pontos:0,tempoTotal:0}; listaJogadores.push(p); }
-  if(acertou) p.pontos++; p.tempoTotal+=tempoGasto;
-  localStorage.setItem("quizPlayers",JSON.stringify(listaJogadores));
-  mostrarRanking(tempoGasto);
-}
+      isAdmin = (nomeAtual.toLowerCase() === "henriquectx");
 
-function mostrarRanking(tempoGasto){
-  hide("quizScreen"); show("rankingScreen");
-  document.getElementById("tempoDaPergunta").innerText=`Você gastou: ${tempoGasto.toFixed(2)}s`;
-  listaJogadores.sort((a,b)=>{ if(b.pontos!==a.pontos)return b.pontos-a.pontos; return a.tempoTotal-b.tempoTotal; });
-  let html=""; listaJogadores.forEach(p=>{ html+=`<tr><td>${p.nome}</td><td>${p.pontos}</td><td>${p.tempoTotal.toFixed(2)}</td></tr>`; });
-  document.getElementById("rankingTabela").innerHTML=html;
-}
+      await postEstado({ addPlayer: nomeAtual });
 
-function adminDecide(){ hide("rankingScreen"); isAdmin?show("adminScreen"):show("waitingScreen"); }
+      hide("cadastroScreen");
+      show("posCadastroScreen");
+    }
 
-async function finalizarGeral(){
-  if(jogoFinalizado) return; jogoFinalizado=true;
-  hide("rankingScreen"); hide("quizScreen"); hide("adminScreen"); hide("waitingScreen"); show("resultadoScreen");
-  listaJogadores.sort((a,b)=>{ if(b.pontos!==a.pontos)return b.pontos-a.pontos; return a.tempoTotal-b.tempoTotal; });
-  if(listaJogadores[0]) await postEstado({ addRanking: listaJogadores[0] });
-  const est=await getEstado(); const top3=est.top3||[]; const rankingGeral=est.ranking||[];
-  function fill(pos,data){
-    document.getElementById(`podio${pos}Nome`).innerText=data?data.nome:"---";
-    document.getElementById(`podio${pos}Pontos`).innerText=data?`${data.pontos} pts • ${data.tempoTotal.toFixed(2)}s`:"";
-  }
-  fill(1,top3[0]); fill(2,top3[1]); fill(3,top3[2]);
-  if(isAdmin){ show("rankingAdmin"); let html=""; rankingGeral.forEach(r=>{ html+=`<tr><td>${r.nome}</td><td>${r.pontos}</td><td>${r.tempoTotal.toFixed(2)}</td></tr>`; }); document.getElementById("rankingAdminTabela").innerHTML=html; }
-}
+    function irParaEspera() {
+      hide("posCadastroScreen");
+      if (isAdmin) {
+        show("adminScreen");
+      } else {
+        show("waitingScreen");
+      }
+    }
 
-setInterval(atualizarLobby,1500);
-setInterval(buscarEstadoServidor,1500);
+    async function atualizarLobby() {
+      if (!isAdmin) return;
 
-async function buscarEstadoServidor(){
-  const est=await getEstado();
-  if(isAdmin) document.getElementById("infoAdmin").innerText=`Pergunta atual: ${est.pergunta_atual}/${perguntas.length}`;
-  const numPerg=est.pergunta_atual;
-  if(!isAdmin){
-    if(numPerg>0 && numPerg!==ultimaPerguntaVista){ ultimaPerguntaVista=numPerg; indexPergunta=numPerg-1; exibirPerguntaAtual(); }
-    if(est.status==="finalizado" && !jogoFinalizado) finalizarGeral();
-  }
-}
-</script>
+      const est = await getEstado();
+      const perguntaAtual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
+
+      document.getElementById("infoAdmin").innerText =
+        `Pergunta atual: ${perguntaAtual}/${perguntas.length}`;
+    }
+
+    async function iniciarPerguntaAdmin() {
+      const est = await getEstado();
+      const atual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
+      const prox = atual + 1;
+
+      if (prox > perguntas.length) {
+        await postEstado({ pergunta_atual: 0, status: "finalizado" });
+        finalizarGeral();
+        return;
+      }
+
+      indexPergunta = prox - 1;
+      ultimaPerguntaVista = prox;
+
+      await postEstado({ pergunta_atual: prox, status: "respondendo" });
+      exibirPerguntaAtual();
+    }
+
+    async function abrirGerenciarJogadores() {
+      hide("adminScreen");
+      show("gerenciarJogadoresScreen");
+
+      const est = await getEstado();
+      const players = est.players || [];
+
+      let html = "";
+      players.forEach((nome) => {
+        html +=
+          `<div class="playerItem">
+            <span>${nome}</span>
+            <button style="background:#d60000" onclick="removerJogador('${nome}')">Remover</button>
+          </div>`;
+      });
+      document.getElementById("listaJogadoresAdmin").innerHTML = html;
+    }
+
+    async function removerJogador(nome) {
+      if (!confirm(`Remover ${nome}?`)) return;
+      await postEstado({ removePlayer: nome });
+      abrirGerenciarJogadores();
+    }
+
+    function voltarAdmin() {
+      hide("gerenciarJogadoresScreen");
+      show("adminScreen");
+    }
+
+    function exibirPerguntaAtual() {
+      hide("waitingScreen");
+      hide("adminScreen");
+      hide("rankingScreen");
+      show("quizScreen");
+
+      const q = perguntas[indexPergunta];
+      document.getElementById("perguntaTexto").innerText = q.pergunta;
+
+      let html = "";
+      if (!isAdmin) {
+        q.opcoes.forEach((opc, i) => {
+          html += `<div class="opcao" onclick="responder(${i})">${opc}</div>`;
+        });
+      } else {
+        html = "<p>Você é admin. Apenas observando o tempo.</p>";
+      }
+      document.getElementById("opcoes").innerHTML = html;
+
+      tempo = 15;
+      document.getElementById("tempo").innerText = tempo;
+      tempoInicioPergunta = Date.now();
+
+      clearInterval(timer);
+      timer = setInterval(() => {
+        tempo--;
+        document.getElementById("tempo").innerText = tempo;
+
+        if (tempo <= 0) {
+          clearInterval(timer);
+          if (!isAdmin) registrarTempo(false);
+        }
+      }, 1000);
+    }
+
+    function responder(opcao) {
+      if (isAdmin) return;
+      clearInterval(timer);
+      const acertou = (opcao === perguntas[indexPergunta].correta);
+      registrarTempo(acertou);
+    }
+
+    function registrarTempo(acertou) {
+      const tempoGasto = (Date.now() - tempoInicioPergunta) / 1000;
+
+      let p = listaJogadores.find((x) => x.nome === nomeAtual);
+      if (!p) {
+        p = { nome: nomeAtual, pontos: 0, tempoTotal: 0 };
+        listaJogadores.push(p);
+      }
+
+      if (acertou === true) {
+        p.pontos++;
+      }
+      p.tempoTotal += tempoGasto;
+
+      localStorage.setItem("quizPlayers", JSON.stringify(listaJogadores));
+
+      mostrarRanking(tempoGasto);
+    }
+
+    function mostrarRanking(tempoGasto) {
+      hide("quizScreen");
+      show("rankingScreen");
+
+      document.getElementById("tempoDaPergunta").innerText =
+        `Você gastou: ${tempoGasto.toFixed(2)}s`;
+
+      listaJogadores.sort((a, b) => {
+        if (b.pontos !== a.pontos) return b.pontos - a.pontos;
+        return a.tempoTotal - b.tempoTotal;
+      });
+
+      let html = "";
+      listaJogadores.forEach((p) => {
+        html +=
+          `<tr>
+            <td>${p.nome}</td>
+            <td>${p.pontos}</td>
+            <td>${p.tempoTotal.toFixed(2)}</td>
+          </tr>`;
+      });
+      document.getElementById("rankingTabela").innerHTML = html;
+    }
+
+    function adminDecide() {
+      hide("rankingScreen");
+      if (isAdmin) {
+        show("adminScreen");
+      } else {
+        show("waitingScreen");
+      }
+    }
+
+    async function finalizarGeral() {
+      if (jogoFinalizado) return;
+      jogoFinalizado = true;
+
+      hide("rankingScreen");
+      hide("quizScreen");
+      hide("adminScreen");
+      hide("waitingScreen");
+      show("resultadoScreen");
+
+      // Ordena lista local (só deste navegador)
+      listaJogadores.sort((a, b) => {
+        if (b.pontos !== a.pontos) return b.pontos - a.pontos;
+        return a.tempoTotal - b.tempoTotal;
+      });
+
+      if (listaJogadores[0]) {
+        await postEstado({ addRanking: listaJogadores[0] });
+      }
+
+      const est = await getEstado();
+      const top3 = est.top3 || [];
+      const rankingGeral = est.ranking || [];
+
+      function fill(pos, data) {
+        document.getElementById(`podio${pos}Nome`).innerText =
+          data ? data.nome : "---";
+        document.getElementById(`podio${pos}Pontos`).innerText =
+          data ? `${data.pontos} pts • ${data.tempoTotal.toFixed(2)}s` : "";
+      }
+
+      fill(1, top3[0]);
+      fill(2, top3[1]);
+      fill(3, top3[2]);
+
+      if (isAdmin) {
+        show("rankingAdmin");
+
+        let html = "";
+        rankingGeral.forEach((r) => {
+          html +=
+            `<tr>
+              <td>${r.nome}</td>
+              <td>${r.pontos}</td>
+              <td>${r.tempoTotal.toFixed(2)}</td>
+            </tr>`;
+        });
+        document.getElementById("rankingAdminTabela").innerHTML = html;
+      }
+    }
+
+    // Atualizações periódicas
+    setInterval(atualizarLobby, 1500);
+    setInterval(buscarEstadoServidor, 1500);
+
+    async function buscarEstadoServidor() {
+      const est = await getEstado();
+      const perguntaAtual = parseInt(est.pergunta_atual ?? 0, 10) || 0;
+      const players = est.players || [];
+
+      // Atualiza contador de pessoas no lobby para todos
+      const contador = document.getElementById("contadorPessoas");
+      if (contador) {
+        const qtd = players.length;
+        contador.innerText = `${qtd} jogador${qtd === 1 ? "" : "es"}`;
+      }
+
+      if (isAdmin) {
+        document.getElementById("infoAdmin").innerText =
+          `Pergunta atual: ${perguntaAtual}/${perguntas.length}`;
+      }
+
+      if (!isAdmin) {
+        if (perguntaAtual > 0 && perguntaAtual !== ultimaPerguntaVista) {
+          ultimaPerguntaVista = perguntaAtual;
+          indexPergunta = perguntaAtual - 1;
+          exibirPerguntaAtual();
+        }
+        if (est.status === "finalizado" && !jogoFinalizado) {
+          finalizarGeral();
+        }
+      }
+    }
+  </script>
 </body>
 </html>
